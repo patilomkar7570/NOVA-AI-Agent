@@ -1,5 +1,7 @@
 # NOVA AI Agent
 
+### 🚧 Alpha 0.1 — Active Development
+
 > **NOVA — Natural-language Operating & Virtual Assistant**
 
 ### Alpha 0.1 🚧
