@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import heroPhoto from './assets/nova-hero-photo.png'
 
@@ -100,18 +100,10 @@ function GridIcon() {
   )
 }
 
-function AccountIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
-      strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.2" />
-      <path d="M5.5 20c.7-3.5 3-5.5 6.5-5.5s5.8 2 6.5 5.5" />
-    </svg>
-  )
-}
 
 function App() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('nova-sidebar-collapsed') === 'true')
+
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('nova-sidebar-width')
     return saved ? Number(saved) : 207
@@ -119,10 +111,15 @@ function App() {
 
 const [task, setTask] = useState('')
   const [activeSection, setActiveSection] = useState('home')
-
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [userName, setUserName] = useState(() => localStorage.getItem('nova-user-name') || 'Omkar')
+  const [nameDraft, setNameDraft] = useState(() => localStorage.getItem('nova-user-name') || 'Omkar')
+  const profileRef = useRef(null)
   const [running, setRunning] = useState(false)
   const [backendOnline, setBackendOnline] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const [chats, setChats] = useState([])
+  const [activeChatId, setActiveChatId] = useState(null)
 
 const [darkMode, setDarkMode] = useState(() => {
   return localStorage.getItem('nova-theme') === 'dark'
@@ -135,6 +132,44 @@ useEffect(() => {
   useEffect(() => {
     localStorage.setItem('nova-sidebar-width', sidebarWidth)
   }, [sidebarWidth])
+
+  useEffect(() => {
+    localStorage.setItem('nova-sidebar-collapsed', sidebarCollapsed)
+  }, [sidebarCollapsed])
+
+  const getInitials = (name) => {
+    const words = name.trim().split(/\s+/).filter(Boolean)
+    if (!words.length) return 'O'
+    return words.slice(0, 2).map(word => word[0].toUpperCase()).join('')
+  }
+
+  const getFirstName = (name) => {
+    return name.trim().split(/\s+/).filter(Boolean)[0] || ''
+  }
+
+  const updateUserName = (name) => {
+    setNameDraft(name)
+    setUserName(name)
+    localStorage.setItem('nova-user-name', name)
+  }
+
+  const openProfile = () => {
+    setNameDraft(userName)
+    setProfileOpen(!profileOpen)
+  }
+
+  useEffect(() => {
+    if (!profileOpen) return
+
+    const handlePointerDown = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [profileOpen])
 
   const resizeSidebar = (event) => {
     event.preventDefault()
@@ -160,14 +195,158 @@ useEffect(() => {
     window.addEventListener('pointerup', handleUp)
   }
 
-  const runTask = async () => {
-    const command = task.trim()
+  const loadChats = async (selectLatest = false) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/chats')
+
+      if (!response.ok) {
+        throw new Error('Could not load chat history')
+      }
+
+      const data = await response.json()
+      const nextChats = Array.isArray(data.chats) ? data.chats : []
+
+      setChats(nextChats)
+
+      // On first load, open the newest saved conversation.
+      // Otherwise keep whichever conversation the user is currently viewing.
+      if (selectLatest && nextChats.length && !activeChatId) {
+        setActiveChatId(nextChats[0].id)
+      }
+    } catch (error) {
+      console.error('Chat history:', error)
+    }
+  }
+
+  const createNewChat = () => {
+    if (running) return
+
+    // Start a fresh conversation and return to the Home screen.
+    // The next prompt typed on Home creates the new chat.
+    setActiveChatId(null)
+    setActiveSection('home')
+    setTask('')
+    setStatusMessage('')
+  }
+
+  const openChat = (chatId) => {
+    setActiveChatId(chatId)
+    setActiveSection('chat')
+  }
+
+  const activeChat = chats.find((chat) => chat.id === activeChatId) || null
+
+  const deleteChat = async (chatId) => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/chats/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Could not delete chat')
+      }
+
+      const data = await response.json()
+
+      setChats(Array.isArray(data.chats) ? data.chats : [])
+
+      if (activeChatId === chatId) {
+        setActiveChatId(null)
+      }
+    } catch (error) {
+      console.error('Delete chat:', error)
+      setStatusMessage('Could not delete chat.')
+    }
+  }
+
+  const savePromptToHistory = async (command) => {
+    try {
+      // No active chat = the Home composer is starting a brand-new conversation.
+      if (!activeChatId) {
+        const response = await fetch('http://127.0.0.1:8000/api/chats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Could not create chat')
+        }
+
+        const data = await response.json()
+        const createdChat = data.chat
+
+        setChats((current) => [
+          createdChat,
+          ...current.filter((chat) => chat.id !== createdChat.id),
+        ])
+
+        setActiveChatId(createdChat.id)
+
+        return {
+          chatId: createdChat.id,
+          createdNewChat: true,
+        }
+      }
+
+      // Active chat = continue the existing conversation.
+      const response = await fetch(
+        'http://127.0.0.1:8000/api/chats/append',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: activeChatId,
+            command,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Could not save message')
+      }
+
+      const data = await response.json()
+
+      setChats((current) =>
+        current.map((chat) =>
+          chat.id === activeChatId ? data.chat : chat
+        )
+      )
+
+      return {
+        chatId: activeChatId,
+        createdNewChat: false,
+      }
+    } catch (error) {
+      console.error('Chat history save:', error)
+      return null
+    }
+  }
+
+  const runTask = async (commandOverride = null) => {
+    const command = (commandOverride ?? task).trim()
+
     if (!command || running) return
 
-    // Behave like a chat composer: once the message is submitted,
-    // immediately clear the input so it is ready for the next message.
     setTask('')
-    setStatusMessage('Starting NOVA…')
+    setStatusMessage('Saving to chat history…')
+
+    const saved = await savePromptToHistory(command)
+
+    if (!saved) {
+      setStatusMessage('Could not save chat history.')
+      return
+    }
+
+    // If the prompt came from Home, this was a new conversation.
+    // Immediately move into the Chat screen so the conversation continues there.
+    if (saved.createdNewChat) {
+      setActiveSection('chat')
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/task', {
         method: 'POST',
@@ -176,6 +355,7 @@ useEffect(() => {
       })
 
       const data = await response.json()
+
       if (!response.ok) {
         throw new Error(data.error || 'Could not start the task')
       }
@@ -185,7 +365,6 @@ useEffect(() => {
       setStatusMessage('NOVA is working…')
     } catch (error) {
       console.error(error)
-      setBackendOnline(false)
       setStatusMessage('Backend offline — start api.py')
     }
   }
@@ -198,6 +377,14 @@ useEffect(() => {
       console.error(error)
     }
   }
+
+  useEffect(() => {
+    loadChats(true)
+  }, [])
+
+  useEffect(() => {
+    if (activeSection === 'chat') loadChats(false)
+  }, [activeSection])
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -225,13 +412,13 @@ useEffect(() => {
 <div
   className={`app ${darkMode ? 'dark-mode' : ''}`}
       style={{
-        '--sidebar-width': `${sidebarWidth}px`,
+        '--sidebar-width': `${sidebarCollapsed ? 72 : sidebarWidth}px`,
       }}
     >
 
       {/* ================= SIDEBAR ================= */}
 
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
 
         <svg
           className="sidebar-curves"
@@ -278,28 +465,21 @@ useEffect(() => {
             <span className="nav-icon">
               <HomeIcon />
             </span>
-            <span>Home</span>
+            <span className="nav-label">Home</span>
           </button>
 
           <button className={`nav-item ${activeSection === 'chat' ? 'active' : ''}`} onClick={() => setActiveSection('chat')}>
             <span className="nav-icon">
               <ChatIcon />
             </span>
-            <span>Chat</span>
-          </button>
-
-          <button className={`nav-item ${activeSection === 'accounts' ? 'active' : ''}`} onClick={() => setActiveSection('accounts')}>
-            <span className="nav-icon">
-              <AccountIcon />
-            </span>
-            <span>Accounts</span>
+            <span className="nav-label">Chat</span>
           </button>
 
           <button className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => setActiveSection('settings')}>
             <span className="nav-icon">
               <SettingsIcon />
             </span>
-            <span>Settings</span>
+            <span className="nav-label">Settings</span>
           </button>
 
         </nav>
@@ -315,16 +495,14 @@ useEffect(() => {
 
         <div className="sidebar-bottom">
 
-          <div className="bottom-line"></div>
-
-          <div className="bottom-profile">
-            <div className="mini-logo"></div>
-
-            <p>
-              A more<br />
-              capable you.
-            </p>
-          </div>
+          <button
+            className="sidebar-collapse-button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
+          >
+            <span>{sidebarCollapsed ? '›' : '‹'}</span>
+          </button>
 
         </div>
 
@@ -335,7 +513,9 @@ useEffect(() => {
 
       <main className="main">
 
-        {/* Photo */}
+        {activeSection === 'home' && (
+          <>
+          {/* Photo */}
 
         <div className="hero-image">
           <img src={heroPhoto} alt="" />
@@ -350,46 +530,22 @@ useEffect(() => {
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <defs>
-            <filter
-              id="curveShadow"
-              x="-20%"
-              y="-20%"
-              width="140%"
-              height="140%"
-            >
-              <feDropShadow
-                dx="0"
-                dy="4"
-                stdDeviation="9"
-                floodColor="#26312f"
-                floodOpacity=".12"
-              />
-            </filter>
-          </defs>
-
           <path
-            filter="url(#curveShadow)"
             d="
               M0 0
-              L520 0
-
-              C521 91
-                539 163
-                581 224
-
-              C626 290
-                695 334
-                772 371
-
-              C852 409
-                916 438
-                958 477
-
-              C983 501
-                995 530
-                1000 620
-
+              L430 0
+              C428 91
+                438 163
+                475 224
+              C520 290
+                585 334
+                650 371
+              C715 409
+                765 438
+                795 477
+              C812 501
+                820 530
+                825 620
               L0 620
               Z
             "
@@ -397,9 +553,13 @@ useEffect(() => {
         </svg>
 
 
+          </>
+        )}
+
+
         {/* Top right */}
 
-        <div className="top-controls">
+        <div className="top-controls" ref={profileRef}>
 
 <button
   className="theme-button"
@@ -409,27 +569,55 @@ useEffect(() => {
   {darkMode ? '☾' : '☼'}
 </button>
 
-          <div className="profile-button">
-            O
-          </div>
+          <button
+            className="profile-button"
+            onClick={openProfile}
+            aria-label="Open profile"
+            title={userName}
+          >
+            {getInitials(userName)}
+          </button>
+
+          {profileOpen && (
+            <div className="profile-popover">
+              <div className="profile-popover-header">
+                <div className="profile-popover-avatar">{getInitials(userName)}</div>
+                <div>
+                  <span className="profile-popover-label">ACCOUNT</span>
+                  <strong>{userName}</strong>
+                </div>
+              </div>
+
+              <label className="profile-name-label" htmlFor="nova-name">Your name</label>
+              <input
+                id="nova-name"
+                className="profile-name-input"
+                value={nameDraft}
+                onChange={(e) => updateUserName(e.target.value)}
+                placeholder="Enter your name"
+              />
+
+              <p className="profile-popover-hint">Your profile stays on this device. You can change your display name anytime.</p>
+            </div>
+          )}
 
         </div>
 
 
-        {/* Photo message */}
+        {activeSection === 'home' && (
+          <div className="image-message">
 
-        <div className="image-message">
+            <div className="message-line"></div>
 
-          <div className="message-line"></div>
+            <div>
+              <span>See.</span>
+              <span>Understand.</span>
+              <span>Act.</span>
+              <span>For you.</span>
+            </div>
 
-          <div>
-            <span>See.</span>
-            <span>Understand.</span>
-            <span>Act.</span>
-            <span>For you.</span>
           </div>
-
-        </div>
+        )}
 
 
         {/* ================= MAIN CONTENT ================= */}
@@ -443,7 +631,7 @@ useEffect(() => {
 
           <h1>
             Hello,<br />
-            <span>Omkar.</span>
+            <span>{getFirstName(userName)}.</span>
           </h1>
 
           <p className="hero-description">
@@ -625,68 +813,127 @@ useEffect(() => {
           </section>
 
         </section>
-        ) : activeSection === 'accounts' ? (
-          <section className="section-page accounts-page">
-            <p className="eyebrow">CONNECTED SERVICES</p>
-            <h1>Accounts.</h1>
-            <p className="section-description">
-              Connect the services NOVA can work with on your behalf.
-            </p>
-
-            <div className="account-grid">
-              <div className="account-card">
-                <div className="account-card-icon google-icon">G</div>
-                <div className="account-card-copy">
-                  <h2>Google</h2>
-                  <p>Gmail, Drive, Docs, Calendar and YouTube.</p>
-                </div>
-                <button className="account-connect">Connect</button>
-              </div>
-
-              <div className="account-card">
-                <div className="account-card-icon microsoft-icon">M</div>
-                <div className="account-card-copy">
-                  <h2>Microsoft</h2>
-                  <p>Outlook, OneDrive, Teams and Microsoft 365.</p>
-                </div>
-                <button className="account-connect">Connect</button>
-              </div>
-
-              <div className="account-card">
-                <div className="account-card-icon apple-icon"></div>
-                <div className="account-card-copy">
-                  <h2>Apple</h2>
-                  <p>Apple services and your connected devices.</p>
-                </div>
-                <button className="account-connect">Connect</button>
-              </div>
-
-              <div className="account-card">
-                <div className="account-card-icon browser-icon">◎</div>
-                <div className="account-card-copy">
-                  <h2>Browser profile</h2>
-                  <p>Use NOVA's separate Brave profile for web tasks.</p>
-                </div>
-                <span className="account-ready">Ready</span>
-              </div>
-            </div>
-
-            <div className="account-note">
-              <span className="account-note-dot"></span>
-              <span>Accounts will be connected only when you choose to connect them.</span>
-            </div>
-          </section>
         ) : activeSection === 'chat' ? (
-          <section className="section-page placeholder-page">
-            <p className="eyebrow">YOUR CONVERSATIONS</p>
-            <h1>Chat.</h1>
-            <p className="section-description">Your NOVA conversations will appear here.</p>
+          <section className="section-page chat-page">
+            <div className="chat-page-header">
+              <div>
+                <p className="eyebrow">YOUR CONVERSATIONS</p>
+                <h1>Chat.</h1>
+              </div>
+              <button className="new-chat-button" onClick={createNewChat}>
+                + New chat
+              </button>
+            </div>
+
+            <div className="chat-layout">
+              <aside className="chat-history-panel">
+                <div className="chat-history-heading">
+                  <span>HISTORY</span>
+                  <span>{chats.length}</span>
+                </div>
+
+                {chats.length === 0 ? (
+                  <div className="chat-history-empty">Your conversations will appear here.</div>
+                ) : (
+                  <div className="chat-history-list">
+                    {chats.map((chat) => (
+                      <div
+                        className={`chat-history-item ${activeChatId === chat.id ? 'active' : ''}`}
+                        key={chat.id}
+                      >
+                        <button className="chat-history-select" onClick={() => openChat(chat.id)}>
+                          <strong>{chat.title || 'New chat'}</strong>
+                          <span>{chat.messages?.length || 0} prompt{(chat.messages?.length || 0) === 1 ? '' : 's'}</span>
+                        </button>
+                        <button
+                          className="chat-delete-button"
+                          onClick={() => deleteChat(chat.id)}
+                          aria-label={`Delete ${chat.title || 'chat'}`}
+                          title="Delete chat"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </aside>
+
+              <div className="chat-conversation-panel">
+                {activeChat ? (
+                  <>
+                    <div className="conversation-title">{activeChat.title || 'New chat'}</div>
+
+                    <div className="conversation-messages">
+                      {(activeChat.messages || []).map((message, index) => (
+                        <div
+                          className={`conversation-message ${message.role === 'user' ? 'user' : 'nova'}`}
+                          key={`${message.time || 'message'}-${index}`}
+                        >
+                          <span className="conversation-role">
+                            {message.role === 'user' ? 'YOU' : 'NOVA'}
+                          </span>
+                          <p>{message.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="conversation-empty">
+                    <div className="conversation-empty-mark">O</div>
+                    <h2>Start a new conversation.</h2>
+                    <p>
+                      All prompts you send will stay together in this chat until you choose New chat.
+                    </p>
+                  </div>
+                )}
+
+                <div className="task-box chat-task-box">
+                  <button
+                    className="plus-button"
+                    type="button"
+                    aria-label="New chat"
+                    title="New chat"
+                    onClick={createNewChat}
+                  >
+                    +
+                  </button>
+
+                  <input
+                    value={task}
+                    onChange={(e) => setTask(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') runTask()
+                    }}
+                    placeholder={activeChat ? 'Continue this conversation...' : 'Start a new conversation...'}
+                  />
+
+                  <button
+                    className="microphone"
+                    aria-label="Voice input"
+                    type="button"
+                  >
+                    <MicIcon />
+                  </button>
+
+                  <button
+                    className="send-button"
+                    onClick={running ? stopTask : runTask}
+                    aria-label={running ? 'Stop task' : 'Send task'}
+                    title={running ? 'Stop task' : 'Send task'}
+                    type="button"
+                  >
+                    {running ? '■' : '↑'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
         ) : (
-          <section className="section-page placeholder-page">
+          <section className="section-page settings-page">
             <p className="eyebrow">NOVA PREFERENCES</p>
             <h1>Settings.</h1>
-            <p className="section-description">Customize how NOVA looks and works.</p>
+            <div className="settings-coming-soon">COMING SOON</div>
           </section>
         )}
 
