@@ -13,10 +13,35 @@ from playwright.sync_api import sync_playwright
 # CONFIGURATION
 # ============================================================
 
-BRAVE_PATH = (
-    r"C:\Users\dudha\AppData\Local\BraveSoftware\Brave-Browser"
-    r"\Application\brave.exe"
-)
+def find_brave_path():
+    candidates = []
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    program_files = os.environ.get("PROGRAMFILES")
+    program_files_x86 = os.environ.get("PROGRAMFILES(X86)")
+
+    if local_app_data:
+        candidates.append(os.path.join(
+            local_app_data, "BraveSoftware", "Brave-Browser",
+            "Application", "brave.exe"
+        ))
+    if program_files:
+        candidates.append(os.path.join(
+            program_files, "BraveSoftware", "Brave-Browser",
+            "Application", "brave.exe"
+        ))
+    if program_files_x86:
+        candidates.append(os.path.join(
+            program_files_x86, "BraveSoftware", "Brave-Browser",
+            "Application", "brave.exe"
+        ))
+
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+
+    return None
+
+BRAVE_PATH = find_brave_path()
 
 PROFILE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -29,127 +54,35 @@ MODEL = "qwen3:8b"
 MAX_ACTIONS = 10
 MAX_REPLANS = 2
 
-PAGE_TEXT_LIMIT = 1800
-MAX_LINKS = 35
-MAX_BUTTONS = 16
-MAX_INPUTS = 10
+PAGE_TEXT_LIMIT = 1600
+MAX_LINKS = 24
+MAX_BUTTONS = 12
+MAX_INPUTS = 8
 
-QWEN_CONTEXT = 3072
-QWEN_TOKENS = 120
+QWEN_CONTEXT = 2048
+QWEN_TOKENS = 80
 
-CLICK_TIMEOUT = 1200
-TYPE_TIMEOUT = 1200
-NAV_TIMEOUT = 8000
-RENDER_WAIT = 0.12
+CLICK_TIMEOUT = 700
+TYPE_TIMEOUT = 700
+NAV_TIMEOUT = 6000
+RENDER_WAIT = 0.05
 
 # Number of previous user/agent turns supplied to Qwen.
-CONTEXT_TURNS = 6
+CONTEXT_TURNS = 8
 
-# ============================================================
-# DIRECT WEBSITE SHORTCUTS
-# ============================================================
-
-DIRECT_WEBSITES = {
-    "google": "https://www.google.com",
-    "youtube": "https://www.youtube.com",
-    "gmail": "https://mail.google.com",
-    "google drive": "https://drive.google.com",
-    "google docs": "https://docs.google.com",
-    "google sheets": "https://sheets.google.com",
-    "google slides": "https://slides.google.com",
-    "google maps": "https://maps.google.com",
-    "google photos": "https://photos.google.com",
-    "google translate": "https://translate.google.com",
-    "facebook": "https://www.facebook.com",
-    "instagram": "https://www.instagram.com",
-    "twitter": "https://x.com",
-    "x": "https://x.com",
-    "reddit": "https://www.reddit.com",
-    "linkedin": "https://www.linkedin.com",
-    "pinterest": "https://www.pinterest.com",
-    "tiktok": "https://www.tiktok.com",
-    "discord": "https://discord.com",
-    "twitch": "https://www.twitch.tv",
-    "wikipedia": "https://www.wikipedia.org",
-    "amazon": "https://www.amazon.com",
-    "ebay": "https://www.ebay.com",
-    "walmart": "https://www.walmart.com",
-    "flipkart": "https://www.flipkart.com",
-    "myntra": "https://www.myntra.com",
-    "meesho": "https://www.meesho.com",
-    "etsy": "https://www.etsy.com",
-    "best buy": "https://www.bestbuy.com",
-    "ikea": "https://www.ikea.com",
-    "netflix": "https://www.netflix.com",
-    "prime video": "https://www.primevideo.com",
-    "disney plus": "https://www.disneyplus.com",
-    "hulu": "https://www.hulu.com",
-    "max": "https://www.max.com",
-    "spotify": "https://open.spotify.com",
-    "apple music": "https://music.apple.com",
-    "soundcloud": "https://soundcloud.com",
-    "imdb": "https://www.imdb.com",
-    "letterboxd": "https://letterboxd.com",
-    "github": "https://github.com",
-    "gitlab": "https://gitlab.com",
-    "stackoverflow": "https://stackoverflow.com",
-    "python": "https://www.python.org",
-    "pypi": "https://pypi.org",
-    "npm": "https://www.npmjs.com",
-    "docker": "https://www.docker.com",
-    "kaggle": "https://www.kaggle.com",
-    "replit": "https://replit.com",
-    "codepen": "https://codepen.io",
-    "microsoft": "https://www.microsoft.com",
-    "microsoft 365": "https://www.microsoft365.com",
-    "outlook": "https://outlook.live.com",
-    "onedrive": "https://onedrive.live.com",
-    "bing": "https://www.bing.com",
-    "teams": "https://teams.microsoft.com",
-    "office": "https://www.office.com",
-    "apple": "https://www.apple.com",
-    "icloud": "https://www.icloud.com",
-    "samsung": "https://www.samsung.com",
-    "openai": "https://openai.com",
-    "chatgpt": "https://chatgpt.com",
-    "anthropic": "https://www.anthropic.com",
-    "claude": "https://claude.ai",
-    "gemini": "https://gemini.google.com",
-    "perplexity": "https://www.perplexity.ai",
-    "hugging face": "https://huggingface.co",
-    "ollama": "https://ollama.com",
-    "midjourney": "https://www.midjourney.com",
-    "canva": "https://www.canva.com",
-    "nvidia": "https://www.nvidia.com",
-    "amd": "https://www.amd.com",
-    "intel": "https://www.intel.com",
-    "lenovo": "https://www.lenovo.com",
-    "hp": "https://www.hp.com",
-    "dell": "https://www.dell.com",
-    "asus": "https://www.asus.com",
-    "acer": "https://www.acer.com",
-    "logitech": "https://www.logitech.com",
-    "razer": "https://www.razer.com",
-    "minecraft": "https://www.minecraft.net",
-    "curseforge": "https://www.curseforge.com",
-    "modrinth": "https://modrinth.com",
-    "steam": "https://store.steampowered.com",
-    "epic games": "https://store.epicgames.com",
-    "xbox": "https://www.xbox.com",
-    "playstation": "https://www.playstation.com",
-    "roblox": "https://www.roblox.com",
-    "ea": "https://www.ea.com",
-    "ubisoft": "https://www.ubisoft.com",
-    "cloudflare": "https://www.cloudflare.com",
-    "oracle": "https://www.oracle.com",
-    "adobe": "https://www.adobe.com",
-    "dropbox": "https://www.dropbox.com",
-    "notion": "https://www.notion.so",
-    "trello": "https://trello.com",
-    "zoom": "https://zoom.us",
-    "coursera": "https://www.coursera.org",
-    "udemy": "https://www.udemy.com",
-    "w3schools": "https://www.w3schools.com",
+# Conversational mode: casual messages are handled without opening/observing
+# the browser. This keeps NOVA feeling like a real chat assistant.
+FAST_GREETING_REPLIES = {
+    "hi": "Hi! 👋 What can I do for you?",
+    "hello": "Hello! 👋 What can I do for you?",
+    "hey": "Hey! 👋 What are we doing?",
+    "hii": "Hii! 👋 What can I do for you?",
+    "yo": "Yo! 😄 What's up?",
+    "thanks": "You're welcome! 😊",
+    "thank you": "You're welcome! 😊",
+    "thx": "Anytime! 😊",
+    "bye": "Bye! 👋",
+    "goodbye": "Bye! 👋",
 }
 
 # ============================================================
@@ -166,6 +99,15 @@ _listener = None
 
 CURRENT_COMMAND = ""
 CONVERSATION_HISTORY = []
+
+# The active destination persists between conversational commands.
+# Examples:
+#   open youtube
+#   search for mr beast        -> YouTube search
+#   open first video           -> current-page video action
+#
+# Explicit "web/google search" commands override this context.
+ACTIVE_SITE = ""
 
 
 # ============================================================
@@ -296,7 +238,7 @@ def ask_qwen(messages):
             model=MODEL,
             messages=messages,
             think=False,
-            keep_alive="10m",
+            keep_alive="20m",
             options={
                 "num_predict": QWEN_TOKENS,
                 "num_ctx": QWEN_CONTEXT,
@@ -363,6 +305,104 @@ def history_for_qwen():
             lines.append("AGENT RESULT: " + item["result"][:500])
 
     return "\n".join(lines)
+
+
+# ============================================================
+# CONVERSATIONAL MODE
+# ============================================================
+
+def normalize_chat_text(text):
+    return re.sub(r"\s+", " ", str(text).strip().lower())
+
+
+def is_explicit_task_command(text):
+    """Conservative check: explicit action requests stay in task mode."""
+    lower = normalize_chat_text(text)
+
+    task_prefixes = (
+        "open ", "go to ", "visit ", "navigate to ",
+        "search ", "find ", "look up ", "browse ",
+        "click ", "press ", "type ", "scroll ",
+        "read ", "watch ", "play ", "download ",
+        "go back", "go forward", "refresh ",
+    )
+
+    if lower.startswith(task_prefixes):
+        return True
+
+    if re.search(
+        r"\b(open|launch|start)\s+(youtube|yt|google|instagram|reddit|"
+        r"facebook|twitter|x|github|minecraft)\b",
+        lower,
+    ):
+        return True
+
+    return False
+
+
+def fast_conversation_reply(command):
+    """
+    Return (handled, reply).
+
+    Greetings use local canned replies with zero model latency.
+    Normal conversation uses Qwen directly, without browser startup,
+    page observation, or action planning.
+    """
+    clean = normalize_chat_text(command)
+
+    if not clean:
+        return False, ""
+
+    if clean in FAST_GREETING_REPLIES:
+        return True, FAST_GREETING_REPLIES[clean]
+
+    if not is_explicit_task_command(command):
+        history = history_for_qwen()
+        prompt = f"""
+You are NOVA, a local conversational AI assistant.
+Answer the user's message naturally and concisely.
+This is a conversation, NOT a browser task.
+Do not output JSON.
+Do not claim to have performed an action.
+
+RECENT CONVERSATION:
+{history}
+
+USER:
+{command}
+"""
+        raw = ask_qwen([
+            {
+                "role": "system",
+                "content": (
+                    "You are NOVA's chat mode. "
+                    "Be friendly, natural, and concise. "
+                    "Never output tool JSON in this mode."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ])
+
+        if raw.startswith("QWEN_ERROR:"):
+            return True, "I'm having trouble reaching my local model right now."
+
+        return True, raw.strip()
+
+    return False, ""
+
+
+def handle_conversation(command):
+    handled, reply = fast_conversation_reply(command)
+
+    if not handled:
+        return False, ""
+
+    print()
+    print("💬 NOVA")
+    print(reply)
+    print()
+    add_history(command, reply)
+    return True, reply
 
 
 # ============================================================
@@ -509,6 +549,193 @@ def page_identity():
 
 
 # ============================================================
+# DESTINATION / SITE CONTEXT
+# ============================================================
+
+SITE_ALIASES = {
+    "youtube": "youtube",
+    "yt": "youtube",
+    "you tube": "youtube",
+    "google": "google",
+    "reddit": "reddit",
+    "instagram": "instagram",
+    "insta": "instagram",
+    "facebook": "facebook",
+    "fb": "facebook",
+    "github": "github",
+    "twitter": "x",
+    "x": "x",
+    "wikipedia": "wikipedia",
+}
+
+SITE_URLS = {
+    "youtube": "https://www.youtube.com",
+    "google": "https://www.google.com",
+    "reddit": "https://www.reddit.com",
+    "instagram": "https://www.instagram.com",
+    "facebook": "https://www.facebook.com",
+    "github": "https://github.com",
+    "x": "https://x.com",
+    "wikipedia": "https://www.wikipedia.org",
+}
+
+def normalize_site_name(name):
+    value = re.sub(r"\s+", " ", str(name).strip().lower())
+    value = value.replace(".com", "")
+    return SITE_ALIASES.get(value, value)
+
+def site_from_url(url):
+    global ACTIVE_SITE
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(str(url)).hostname or ""
+        host = host.lower().removeprefix("www.")
+
+        if "youtube." in host:
+            return "youtube"
+        if host.endswith("google.com") or host == "google.com":
+            return "google"
+        if "reddit." in host:
+            return "reddit"
+        if "instagram." in host:
+            return "instagram"
+        if "facebook." in host:
+            return "facebook"
+        if "github." in host:
+            return "github"
+        if host == "x.com" or "twitter." in host:
+            return "x"
+        if "wikipedia." in host:
+            return "wikipedia"
+
+        return host
+    except Exception:
+        return ""
+
+def update_active_site(url):
+    global ACTIVE_SITE
+    detected = site_from_url(url)
+    if detected:
+        ACTIVE_SITE = detected
+
+def current_site():
+    if ACTIVE_SITE:
+        return ACTIVE_SITE
+
+    if _page is not None:
+        try:
+            return site_from_url(_page.url)
+        except Exception:
+            pass
+
+    return ""
+
+def resolve_destination_with_qwen(destination):
+    """
+    Qwen-only destination resolver.
+
+    IMPORTANT:
+    - No Google search.
+    - No web search.
+    - No guessed browser navigation by Python.
+    - Qwen must return a URL it actually knows.
+    - If it does not know, it must return null.
+    """
+    destination = str(destination).strip()
+    if not destination:
+        return None
+
+    prompt = f"""
+You are NOVA's local website URL resolver.
+
+The user wants to OPEN this destination:
+{destination}
+
+Use your own learned knowledge only.
+Do NOT suggest Google search.
+Do NOT suggest web search.
+Do NOT invent a fake domain.
+
+Return ONLY valid JSON in exactly this shape:
+{{"url":"https://example.com"}}
+
+If you genuinely do not know the official website URL, return:
+{{"url":null}}
+
+Prefer the official homepage.
+"""
+    raw = ask_qwen([
+        {
+            "role": "system",
+            "content": (
+                "Resolve website destinations from your internal knowledge. "
+                "Never browse and never invent a domain. Return JSON only."
+            ),
+        },
+        {"role": "user", "content": prompt},
+    ])
+
+    data = extract_json(raw)
+    if not isinstance(data, dict):
+        return None
+
+    url = data.get("url")
+    if not url or not isinstance(url, str):
+        return None
+
+    url = url.strip()
+    if not re.match(r"^https?://", url, flags=re.IGNORECASE):
+        return None
+
+    return url
+
+def explicit_web_search_query(text):
+    lower = text.strip().lower()
+    prefixes = (
+        "search google for ",
+        "search google ",
+        "google ",
+        "google search for ",
+        "search the web for ",
+        "search the web ",
+        "search web for ",
+        "search web ",
+        "do a web search for ",
+        "do a web search ",
+        "web search for ",
+        "web search ",
+    )
+    for prefix in prefixes:
+        if lower.startswith(prefix):
+            return text[len(prefix):].strip()
+    return None
+
+def explicit_youtube_search_query(text):
+    lower = text.strip().lower()
+    prefixes = (
+        "search youtube for ",
+        "search youtube ",
+        "youtube search for ",
+        "youtube search ",
+        "find this on youtube ",
+        "find on youtube ",
+    )
+    for prefix in prefixes:
+        if lower.startswith(prefix):
+            return text[len(prefix):].strip()
+    return None
+
+def generic_search_query(text):
+    lower = text.strip().lower()
+    for prefix in ("search for ", "search ", "find "):
+        if lower.startswith(prefix):
+            query = text[len(prefix):].strip()
+            if query:
+                return query
+    return None
+
+
+# ============================================================
 # GENERIC BROWSER SEARCH
 # ============================================================
 
@@ -545,88 +772,170 @@ def search_youtube(query):
 # ============================================================
 
 def open_first_organic_result():
-    """Hard-wired Google first-result click. Never asks Qwen to choose."""
+    """Open Google's first organic result, not Google's own UI links.
+
+    Google search pages contain many links (Google apps, Images, Maps,
+    Shopping, account controls, etc.) before/around the actual results.
+    The reliable marker for an ordinary web result is a result title inside
+    an <h3> within the #search results area.
+    """
     global _page
 
     if _page is None:
         return False, "Browser unavailable."
 
     try:
-        try:
-            _page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-        time.sleep(1.0)
+        candidate = _page.evaluate(r"""
+        () => {
+            const clean = s => (s || "").replace(/\\s+/g, " ").trim();
 
-        # Google result titles are H3 elements. We deliberately start from
-        # the first H3 inside the main search-results area and walk UP to
-        # its containing <a>. This avoids accidentally clicking a random
-        # Google link such as Images, Maps, Sign in, etc.
-        h3_selectors = [
-            '#search h3',
-            'div#rso h3',
-            'main h3',
-        ]
+            const unwrapGoogleUrl = href => {
+                if (!href) return "";
+                try {
+                    const u = new URL(href, location.href);
+                    const host = u.hostname.toLowerCase();
 
-        for h3_selector in h3_selectors:
-            h3s = _page.locator(h3_selector)
-            count = h3s.count()
+                    // Google may wrap an external result as /url?q=... or
+                    // /url?url=... . Extract the real destination first.
+                    if (host === "www.google.com" || host === "google.com") {
+                        const q = u.searchParams.get("q") ||
+                                  u.searchParams.get("url") ||
+                                  u.searchParams.get("u");
+                        if (q && /^https?:\\/\\//i.test(q)) return q;
+                    }
+                    return u.href;
+                } catch (_) {
+                    return "";
+                }
+            };
 
-            for i in range(min(count, 20)):
-                h3 = h3s.nth(i)
-                try:
-                    if not h3.is_visible():
-                        continue
+            const isExternalHttp = href => {
+                try {
+                    const u = new URL(href, location.href);
+                    if (!/^https?:$/i.test(u.protocol)) return false;
+                    const host = u.hostname.toLowerCase();
+                    if (
+                        host === "google.com" ||
+                        host.endsWith(".google.com") ||
+                        host === "google.co.uk" ||
+                        host.endsWith(".google.co.uk") ||
+                        host === "gstatic.com" ||
+                        host.endsWith(".gstatic.com") ||
+                        host.endsWith("googleusercontent.com")
+                    ) return false;
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            };
 
-                    title = (h3.inner_text() or '').strip()
-                    if not title:
-                        continue
+            const sponsored = el => {
+                let node = el;
+                for (let i = 0; node && i < 8; i++, node = node.parentElement) {
+                    const id = clean(node.id).toLowerCase();
+                    const cls = clean(typeof node.className === "string" ? node.className : "").toLowerCase();
+                    const aria = clean(node.getAttribute("aria-label")).toLowerCase();
+                    const txt = clean(node.innerText).toLowerCase().slice(0, 350);
 
-                    # The result title itself is inside the clickable <a>.
-                    link = h3.locator('xpath=ancestor::a[1]')
-                    if link.count() == 0:
-                        continue
-                    link = link.first
-                    if not link.is_visible():
-                        continue
+                    if (
+                        id === "tads" || id.includes("tads") ||
+                        id.includes("commercial") ||
+                        cls.includes("sponsored") || cls.includes("advert") ||
+                        cls.includes("adcontainer") ||
+                        aria.includes("sponsored") || aria === "ad" ||
+                        aria.includes("advertisement") ||
+                        txt.startsWith("sponsored") ||
+                        txt.startsWith("ad ·") ||
+                        txt.startsWith("ad ")
+                    ) return true;
+                }
+                return false;
+            };
 
-                    # Skip obvious sponsored blocks.
-                    try:
-                        block = h3.locator(
-                            'xpath=ancestor::*[@id="tads" or @id="tadblock"][1]'
-                        )
-                        if block.count() and block.first.is_visible():
-                            continue
-                    except Exception:
-                        pass
+            const visible = el => {
+                const r = el.getBoundingClientRect();
+                const st = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 &&
+                       st.display !== "none" && st.visibility !== "hidden";
+            };
 
-                    # Also skip anything explicitly marked sponsored.
-                    try:
-                        txt = link.locator('xpath=ancestor::*[self::div or self::li][1]').inner_text().lower()
-                        if 'sponsored' in txt or 'sponsored' in txt:
-                            continue
-                    except Exception:
-                        pass
+            // ============================================================
+            // GOOGLE-SPECIFIC PATH
+            // ============================================================
+            // Do NOT scan every <a> on the page. That is what can select
+            // "Google apps", Images, Maps, etc. Instead require the anchor
+            // to belong to an organic result containing an H3 title.
+            const searchRoot = document.querySelector("#search");
 
-                    # THIS IS THE IMPORTANT PART: click the exact first
-                    # organic result's <a>, not an arbitrary discovered URL.
-                    link.scroll_into_view_if_needed(timeout=2000)
-                    link.click(timeout=5000, force=False)
+            if (searchRoot) {
+                const anchors = Array.from(searchRoot.querySelectorAll("a[href]"));
 
-                    try:
-                        _page.wait_for_load_state('domcontentloaded', timeout=7000)
-                    except Exception:
-                        pass
-                    time.sleep(0.5)
+                for (const a of anchors) {
+                    if (!visible(a)) continue;
+                    if (sponsored(a)) continue;
 
-                    return True, f'Clicked first Google result: {title[:180]}'
-                except Exception:
-                    continue
+                    // The result title is an H3. It can be inside the anchor
+                    // or inside a nearby ancestor result container.
+                    const h3Inside = a.querySelector("h3");
+                    const resultContainer = a.closest("div[data-snhf], div.MjjYud, div.g, div[data-hveid]");
+                    const h3Nearby = resultContainer ? resultContainer.querySelector("h3") : null;
 
-        return False, 'Could not locate Google result H3/link.'
+                    if (!h3Inside && !h3Nearby) continue;
+
+                    let href = unwrapGoogleUrl(a.getAttribute("href") || a.href || "");
+                    if (!isExternalHttp(href)) continue;
+
+                    const title = clean((h3Inside || h3Nearby).innerText) ||
+                                  clean(a.innerText) || "first result";
+
+                    return { href, text: title.slice(0, 180) };
+                }
+            }
+
+            // ============================================================
+            // FALLBACK FOR OTHER SEARCH RESULT LAYOUTS
+            // ============================================================
+            // Only use this if Google did not expose its normal #search/H3
+            // structure. Still require a meaningful external link and reject
+            // obvious navigation/ad links.
+            const anchors = Array.from(document.querySelectorAll("a[href]"));
+            for (const a of anchors) {
+                if (!visible(a) || sponsored(a)) continue;
+
+                const text = clean(a.innerText || a.getAttribute("aria-label") || a.title);
+                if (!text || text.length < 2) continue;
+
+                const href = unwrapGoogleUrl(a.getAttribute("href") || a.href || "");
+                if (!isExternalHttp(href)) continue;
+
+                // Avoid obvious Google navigation labels in the fallback.
+                const low = text.toLowerCase();
+                if (["google apps", "images", "maps", "shopping", "news", "videos", "more"].includes(low)) continue;
+
+                return { href, text: text.slice(0, 180) };
+            }
+
+            return null;
+        }
+        """)
+
+        if not candidate or not candidate.get("href"):
+            return False, "No organic Google search result found."
+
+        href = candidate["href"]
+        text = candidate.get("text", "first result")
+
+        ok, result = open_url(href)
+        if ok:
+            return True, f"Opened first organic result: {text}"
+        return False, result
 
     except Exception as e:
-        return False, f'Could not click first Google result: {e}'
+        return False, f"Could not open first organic result: {e}"
+
+# ============================================================
+# FIRST VIDEO ON CURRENT PAGE
+# ============================================================
 
 def open_first_video():
     """
@@ -759,6 +1068,7 @@ def open_url(url):
             timeout=NAV_TIMEOUT,
         )
         tiny_wait()
+        update_active_site(url)
         return True, f"Opened {url}"
 
     except Exception as e:
@@ -1214,6 +1524,13 @@ Examples:
 - Never invent a website domain just because the name looks like a domain.
 - If the user explicitly asks to search Google/the web, use SEARCH_WEB.
 - If the user explicitly asks to search YouTube, use SEARCH_YOUTUBE.
+- A generic "search for X" means SEARCH_YOUTUBE when ACTIVE SITE is youtube.
+- A generic "search for X" means SEARCH_WEB only when ACTIVE SITE is google.
+- Do NOT turn generic "search for X" into Google just because "search" is present.
+- Do NOT search Google to discover a website URL. Website destinations are resolved by NOVA/Qwen before planning.
+- If the user asks to open/click a named section, tab, menu, or page, first check whether that target is visibly present on the CURRENT PAGE. If it is visible, click it. If it is not visible, use current page + conversation context to decide what to do; do not invent a destination.
+- "open Shorts section" means first look for a visible Shorts control/section on the current page.
+- Do not use SEARCH_WEB for a section that is already visible on the current page.
 - Do not use SEARCH_WEB merely because you are confused about a follow-up
   that can be solved from the current page.
 
@@ -1225,7 +1542,9 @@ FAST RULES:
 - Navigation can invalidate old targets; if that happens, replan from the
   NEW page toward the SAME original goal.
 - Never click an unrelated visible link merely because it exists.
-- Never invent refs, URLs, shell commands, PowerShell, or Python.
+- Never invent refs, shell commands, PowerShell, or Python.
+- Do not invent a website URL. NOVA resolves destinations before planning.
+- Respect ACTIVE SITE for generic search commands.
 - For factual questions, gather page evidence and use ANSWER.
 - DONE means an action-only request is complete.
 - ANSWER means answer the user's original question.
@@ -1268,6 +1587,7 @@ RECENT CONVERSATION:
 CURRENT BROWSER:
 URL: {observation["url"]}
 TITLE: {observation["title"]}
+ACTIVE SITE: {current_site()}
 TEXT:
 {observation["text"]}
 
@@ -1456,6 +1776,9 @@ def execute_action(action, args):
         )
 
     if action == "ANSWER":
+        message = args.get("message")
+        if message:
+            return True, str(message)
         return answer_from_page(CURRENT_COMMAND)
 
     if action == "DONE":
@@ -1468,203 +1791,288 @@ def execute_action(action, args):
 # VERY FAST UNIVERSAL COMMAND SHORTCUTS
 # ============================================================
 
-def direct_website_command(command):
+def visible_target_text(target):
+    """Fast browser-side check for an exact visible label."""
+    if _page is None:
+        return False
+
+    target = str(target).strip()
+    if not target:
+        return False
+
+    try:
+        return bool(_page.evaluate("""
+        (target) => {
+            const clean = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+            const wanted = clean(target);
+            if (!wanted) return false;
+
+            const visible = el => {
+                const r = el.getBoundingClientRect();
+                const st = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 &&
+                       st.display !== "none" && st.visibility !== "hidden";
+            };
+
+            for (const el of document.querySelectorAll(
+                'a,button,[role="button"],[role="tab"],[role="menuitem"]'
+            )) {
+                if (!visible(el)) continue;
+                const text = clean(
+                    el.innerText ||
+                    el.getAttribute("aria-label") ||
+                    el.getAttribute("title")
+                );
+                if (text === wanted) return true;
+            }
+            return false;
+        }
+        """, target))
+    except Exception:
+        return False
+
+
+def fast_command(command):
+    """Handle common browser actions without spending a Qwen call."""
     text = str(command).strip()
-    lower = text.lower()
+    lower = re.sub(r"\s+", " ", text.lower())
 
-    prefixes = (
-        "open website ",
-        "go to website ",
-        "visit website ",
-        "open ",
-        "go to ",
-        "visit ",
-    )
+    # Current-page navigation/actions.
+    if lower in {
+        "open the first video", "open first video",
+        "open the first youtube video", "open first youtube video",
+        "play the first video", "play first video",
+    }:
+        return [
+            {"action": "OPEN_FIRST_VIDEO", "args": {}},
+            {"action": "DONE", "args": {}},
+        ]
 
-    for prefix in prefixes:
-        if lower.startswith(prefix):
-            name = text[len(prefix):].strip().lower()
-            name = re.sub(r"\s+(website|site|domain)$", "", name, flags=re.IGNORECASE).strip()
-            name = name.rstrip(".")
+    if lower in {
+        "open the first link", "open first link",
+        "click the first link", "click first link",
+    }:
+        if current_site() == "google":
+            return [
+                {"action": "OPEN_FIRST_ORGANIC_RESULT", "args": {}},
+                {"action": "DONE", "args": {}},
+            ]
 
-            if name in DIRECT_WEBSITES:
-                return DIRECT_WEBSITES[name]
+    if lower in {"go back", "back", "go backwards"}:
+        return [
+            {"action": "BACK", "args": {}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    if lower in {"go forward", "forward", "go forwards"}:
+        return [
+            {"action": "FORWARD", "args": {}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    if lower in {"scroll down", "scroll down a bit"}:
+        return [
+            {"action": "SCROLL", "args": {"amount": 700}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    if lower in {"scroll up", "scroll up a bit"}:
+        return [
+            {"action": "SCROLL", "args": {"amount": -700}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    if lower in {"press enter", "hit enter", "press return", "hit return"}:
+        return [
+            {"action": "PRESS", "args": {"key": "Enter"}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    if lower in {"read this page", "read the page", "read page"}:
+        return [
+            {"action": "READ_PAGE", "args": {}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    # Exact visible clicks: safe and much faster than asking Qwen to plan.
+    m = re.match(r"^(?:click|press)\s+(.+)$", lower)
+    if m:
+        target = text.split(None, 1)[1].strip()
+        if target and visible_target_text(target):
+            return [
+                {"action": "CLICK_TEXT", "args": {"text": target}},
+                {"action": "DONE", "args": {}},
+            ]
 
     return None
 
 
 def obvious_command(command):
     """
-    Only handles commands whose meaning is unambiguous WITHOUT Qwen.
+    Deterministic intent routing.
 
-    IMPORTANT:
-    "open the first video" is NOT treated as a destination.
-    Contextual commands go through Qwen so the current page/history can
-    determine what the user means.
+    Core rules:
+    1. Explicit destination aliases open directly when we know the URL.
+    2. Unknown destinations are resolved by Qwen itself, NOT by Google.
+    3. Generic "search for X" stays on the active site.
+    4. Only explicit web/Google wording uses SEARCH_WEB.
+    5. Contextual phrases ("first video", "it", "that", etc.) go to Qwen.
     """
-
-    text = command.strip()
+    text = str(command).strip()
     lower = text.lower()
 
-    # Known websites open directly without Google or Qwen.
-    direct_url = direct_website_command(command)
-    if direct_url:
-        return [
-            {"action": "OPEN_URL", "args": {"url": direct_url}},
-            {"action": "DONE", "args": {}},
-        ]
-
-    # Explicit full URL.
+    # ------------------------------------------------------------
+    # 1. Explicit URL.
+    # ------------------------------------------------------------
     for prefix in (
-        "open https://",
-        "go to https://",
-        "visit https://",
-        "open http://",
-        "go to http://",
-        "visit http://",
+        "open https://", "go to https://", "visit https://",
+        "open http://", "go to http://", "visit http://",
     ):
         if lower.startswith(prefix):
             url = text[len(prefix):].strip()
-
             return [
-                {
-                    "action": "OPEN_URL",
-                    "args": {"url": url},
-                },
-                {
-                    "action": "DONE",
-                    "args": {},
-                },
+                {"action": "OPEN_URL", "args": {"url": url}},
+                {"action": "DONE", "args": {}},
             ]
 
-    # Exact YouTube destination.
-    if lower in {
-        "open youtube",
-        "go to youtube",
-        "visit youtube",
-        "open youtube.com",
-        "go to youtube.com",
-        "visit youtube.com",
-    }:
+    # ------------------------------------------------------------
+    # 2. Explicit web / Google search ALWAYS overrides site context.
+    # ------------------------------------------------------------
+    query = explicit_web_search_query(text)
+    if query:
         return [
-            {
-                "action": "OPEN_URL",
-                "args": {
-                    "url": "https://www.youtube.com"
-                },
-            },
-            {
-                "action": "DONE",
-                "args": {},
-            },
+            {"action": "SEARCH_WEB", "args": {"query": query}},
+            {"action": "DONE", "args": {}},
         ]
 
-    # Explicit YouTube search.
-    youtube_prefixes = (
-        "search youtube for ",
-        "search youtube ",
-        "youtube search for ",
-        "youtube search ",
+    # ------------------------------------------------------------
+    # 3. Explicit YouTube search.
+    # ------------------------------------------------------------
+    query = explicit_youtube_search_query(text)
+    if query:
+        return [
+            {"action": "SEARCH_YOUTUBE", "args": {"query": query}},
+            {"action": "DONE", "args": {}},
+        ]
+
+    # ------------------------------------------------------------
+    # 4. Explicit destination: "open YouTube", "go to GitHub", etc.
+    # ------------------------------------------------------------
+    destination_match = re.match(
+        r"^(?:open|go to|visit)\s+(?:the\s+)?(.+?)\s*$",
+        text,
+        flags=re.IGNORECASE,
     )
 
-    for prefix in youtube_prefixes:
-        if lower.startswith(prefix):
-            query = text[len(prefix):].strip()
-            query = re.sub(r"\s+(?:website|site|domain)$", "", query, flags=re.IGNORECASE).strip()
+    if destination_match:
+        destination = destination_match.group(1).strip()
+        low_dest = destination.lower()
 
-            if query:
+        # Never steal contextual commands from Qwen.
+        contextual = (
+            low_dest in {"it", "that", "this"},
+            low_dest.startswith("the first"),
+            low_dest.startswith("first"),
+            low_dest.startswith("the second"),
+            low_dest.startswith("second"),
+            low_dest.startswith("the third"),
+            low_dest.startswith("third"),
+            low_dest.startswith("the next"),
+            low_dest.startswith("next"),
+            low_dest.startswith("a video"),
+            low_dest.startswith("the video"),
+            low_dest.endswith(" section"),
+            low_dest.endswith(" tab"),
+            low_dest.endswith(" menu"),
+            low_dest.endswith(" page"),
+        )
+
+        if not any(contextual):
+            # Remove words that are only describing the destination.
+            cleaned = re.sub(
+                r"\b(website|site|domain)\b",
+                " ",
+                destination,
+                flags=re.IGNORECASE,
+            )
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+            normalized = normalize_site_name(cleaned)
+
+            if normalized in SITE_URLS:
                 return [
                     {
-                        "action": "SEARCH_YOUTUBE",
-                        "args": {"query": query},
+                        "action": "OPEN_URL",
+                        "args": {"url": SITE_URLS[normalized]},
                     },
-                    {
-                        "action": "DONE",
-                        "args": {},
-                    },
+                    {"action": "DONE", "args": {}},
                 ]
 
-    # Explicit Google/web search.
-    search_prefixes = (
-        "search google for ",
-        "search the web for ",
-        "search web for ",
-        "search google ",
-        "search the web ",
-        "search web ",
-    )
-
-    for prefix in search_prefixes:
-        if lower.startswith(prefix):
-            query = text[len(prefix):].strip()
-
-            if query:
+            # Qwen resolves unknown destinations from its own knowledge.
+            resolved = resolve_destination_with_qwen(cleaned)
+            if resolved:
                 return [
-                    {
-                        "action": "SEARCH_WEB",
-                        "args": {"query": query},
-                    },
-                    {
-                        "action": "DONE",
-                        "args": {},
-                    },
+                    {"action": "OPEN_URL", "args": {"url": resolved}},
+                    {"action": "DONE", "args": {}},
                 ]
 
-    # Generic named destinations:
-    # If the user explicitly asks to OPEN / GO TO / VISIT a named thing,
-    # search for that name in the browser and automatically open the first
-    # organic result. This is intentionally generic — no website-specific
-    # hardcoding and no hidden/background search.
-    #
-    # Contextual phrases such as "open it", "open the first video",
-    # "open the first link", etc. are NOT handled here; they go to Qwen so
-    # current-page state + recent conversation can determine the target.
-    destination_prefixes = (
-        "open ",
-        "go to ",
-        "visit ",
-        "open website ",
-        "go to website ",
-        "visit website ",
-    )
+            print(
+                f"❌ Qwen does not know the official URL for "
+                f"'{cleaned}'. No web search was performed."
+            )
+            return [
+                {
+                    "action": "ANSWER",
+                    "args": {
+                        "message": (
+                            f"I don't know the official URL for '{cleaned}' "
+                            "from my local Qwen knowledge."
+                        )
+                    },
+                }
+            ]
 
-    contextual_prefixes = (
-        "open it",
-        "open that",
-        "open this",
-        "open the first",
-        "open first",
-        "open second",
-        "open third",
-        "click it",
-        "click that",
-        "click this",
-        "go back and open",
-        "then open",
-    )
+    # ------------------------------------------------------------
+    # 5. Generic search follows active site context.
+    # ------------------------------------------------------------
+    query = generic_search_query(text)
+    if query:
+        site = current_site()
 
-    if any(lower.startswith(p) for p in contextual_prefixes):
+        if site == "youtube":
+            return [
+                {"action": "SEARCH_YOUTUBE", "args": {"query": query}},
+                {"action": "DONE", "args": {}},
+            ]
+
+        if site == "google":
+            return [
+                {"action": "SEARCH_WEB", "args": {"query": query}},
+                {"action": "DONE", "args": {}},
+            ]
+
+        # For another known active website, let Qwen use the current
+        # page and choose the correct site's search UI.
         return None
 
-    for prefix in destination_prefixes:
-        if lower.startswith(prefix):
-            query = text[len(prefix):].strip()
+    # ------------------------------------------------------------
+    # 6. Visible section/tab/menu.
+    # ------------------------------------------------------------
+    section_match = re.match(
+        r"^(?:open|go to|visit|click)\s+(?:the\s+)?(.+?)\s+"
+        r"(?:section|tab|menu|page)\s*$",
+        text,
+        flags=re.IGNORECASE,
+    )
 
-            if query:
-                return [
-                    {
-                        "action": "SEARCH_WEB",
-                        "args": {"query": query},
-                    },
-                    {
-                        "action": "OPEN_FIRST_ORGANIC_RESULT",
-                        "args": {},
-                    },
-                    {
-                        "action": "DONE",
-                        "args": {},
-                    },
-                ]
+    if section_match:
+        target = section_match.group(1).strip()
+        if target and visible_target_text(target):
+            return [
+                {"action": "CLICK_TEXT", "args": {"text": target}},
+                {"action": "DONE", "args": {}},
+            ]
+        return None
 
     return None
 
@@ -1692,6 +2100,7 @@ FAILURE:
 CURRENT BROWSER:
 URL: {observation["url"]}
 TITLE: {observation["title"]}
+ACTIVE SITE: {current_site()}
 TEXT:
 {observation["text"]}
 
@@ -1811,6 +2220,14 @@ def run_task(command):
     print(CURRENT_COMMAND)
     print("=" * 64)
 
+    # --------------------------------------------------------
+    # Conversation path BEFORE browser startup.
+    # "hi" must not launch Brave or run the browser planner.
+    # --------------------------------------------------------
+    handled, _reply = handle_conversation(CURRENT_COMMAND)
+    if handled:
+        return
+
     if not start_browser():
         return
 
@@ -1820,7 +2237,9 @@ def run_task(command):
     # be a destination OR a contextual instruction.
     # --------------------------------------------------------
 
-    plan = obvious_command(CURRENT_COMMAND)
+    plan = fast_command(CURRENT_COMMAND)
+    if not plan:
+        plan = obvious_command(CURRENT_COMMAND)
 
     if plan:
         print("⚡ Direct action")
@@ -1982,6 +2401,20 @@ def run_task(command):
             print("   ✅", result)
         else:
             print("   ❌", result)
+
+            # Infrastructure/thread failures cannot be repaired by choosing
+            # another browser selector. Stop instead of looping.
+            low_result = str(result).lower()
+            infrastructure_error = any(term in low_result for term in (
+                "cannot switch to a different thread",
+                "thread which happens to have exited",
+                "playwright",
+                "target page, context or browser has been closed",
+            ))
+            if infrastructure_error:
+                print("🛑 Browser infrastructure failure — stopping task.")
+                add_history(CURRENT_COMMAND, result)
+                return
 
             if replans >= MAX_REPLANS:
                 print("❌ Maximum replans reached.")

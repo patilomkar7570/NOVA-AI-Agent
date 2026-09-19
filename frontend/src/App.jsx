@@ -116,18 +116,29 @@ const [task, setTask] = useState('')
   const [nameDraft, setNameDraft] = useState(() => localStorage.getItem('nova-user-name') || 'Omkar')
   const profileRef = useRef(null)
   const [running, setRunning] = useState(false)
+  const [stopArmed, setStopArmed] = useState(false)
   const [backendOnline, setBackendOnline] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [chats, setChats] = useState([])
   const [activeChatId, setActiveChatId] = useState(null)
+  const [events, setEvents] = useState([])
 
-const [darkMode, setDarkMode] = useState(() => {
-  return localStorage.getItem('nova-theme') === 'dark'
-})
+const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-theme') || 'system')
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false)
+  const darkMode = themeMode === 'dark' || (themeMode === 'system' && systemDark)
 
-useEffect(() => {
-  localStorage.setItem('nova-theme', darkMode ? 'dark' : 'light')
-}, [darkMode])
+  useEffect(() => {
+    localStorage.setItem('nova-theme', themeMode)
+  }, [themeMode])
+
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    if (!media) return
+    const updateSystemTheme = (event) => setSystemDark(event.matches)
+    setSystemDark(media.matches)
+    media.addEventListener?.('change', updateSystemTheme)
+    return () => media.removeEventListener?.('change', updateSystemTheme)
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('nova-sidebar-width', sidebarWidth)
@@ -141,6 +152,13 @@ useEffect(() => {
     const words = name.trim().split(/\s+/).filter(Boolean)
     if (!words.length) return 'O'
     return words.slice(0, 2).map(word => word[0].toUpperCase()).join('')
+  }
+
+  const getChatInitials = (title) => {
+    const words = String(title || 'Chat').trim().split(/\s+/).filter(Boolean)
+    if (!words.length) return 'C'
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase()
+    return words.slice(0, 3).map(word => word[0].toUpperCase()).join('')
   }
 
   const getFirstName = (name) => {
@@ -175,11 +193,21 @@ useEffect(() => {
     event.preventDefault()
 
     const startX = event.clientX
-    const startWidth = sidebarWidth
+    const startWidth = sidebarCollapsed ? 72 : sidebarWidth
 
     const handleMove = (moveEvent) => {
-      const nextWidth = Math.min(280, Math.max(170, startWidth + (moveEvent.clientX - startX)))
-      setSidebarWidth(nextWidth)
+      // The resize handle is now the only way to collapse/expand the sidebar.
+      // Drag all the way down to 72px to enter compact mode.
+      const rawWidth = startWidth + (moveEvent.clientX - startX)
+      const nextWidth = Math.min(280, Math.max(72, rawWidth))
+
+      if (nextWidth <= 90) {
+        setSidebarCollapsed(true)
+        setSidebarWidth(72)
+      } else {
+        setSidebarCollapsed(false)
+        setSidebarWidth(nextWidth)
+      }
     }
 
     const handleUp = () => {
@@ -218,14 +246,16 @@ useEffect(() => {
     }
   }
 
-  const createNewChat = () => {
+  const createNewChat = (event) => {
+    if (event) event.preventDefault()
     if (running) return
 
-    // Start a fresh conversation and return to the Home screen.
-    // The next prompt typed on Home creates the new chat.
+    // Start a fresh conversation directly in the Chat screen.
+    // The backend chat is created only when the first message is sent.
     setActiveChatId(null)
-    setActiveSection('home')
+    setActiveSection('chat')
     setTask('')
+    setEvents([])
     setStatusMessage('')
   }
 
@@ -332,7 +362,17 @@ useEffect(() => {
     if (!command || running) return
 
     setTask('')
-    setStatusMessage('Saving to chat history…')
+    setEvents([])
+    setStopArmed(false)
+
+    // A message from Home immediately opens the conversation screen.
+    // The first message creates the backend chat in the background.
+    const startedFromHome = activeSection === 'home' && !activeChatId
+    if (startedFromHome) {
+      setActiveSection('chat')
+    }
+
+    setStatusMessage('Starting conversation…')
 
     const saved = await savePromptToHistory(command)
 
@@ -369,13 +409,38 @@ useEffect(() => {
     }
   }
 
-  const stopTask = async () => {
-    try {
-      await fetch('http://127.0.0.1:8000/api/stop', { method: 'POST' })
-      setStatusMessage('Stopping…')
-    } catch (error) {
-      console.error(error)
+  const handleActionButton = async () => {
+    // Same two-stage behavior as the old keyboard ESC control:
+    // 1st press = stop the current task.
+    // 2nd press = close the NOVA browser worker.
+    if (running) {
+      try {
+        await fetch('http://127.0.0.1:8000/api/stop', { method: 'POST' })
+        setStopArmed(true)
+        setStatusMessage('Stopping… press again to close NOVA.')
+      } catch (error) {
+        console.error(error)
+        setStatusMessage('Could not stop the task.')
+      }
+      return
     }
+
+    if (stopArmed) {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/close', { method: 'POST' })
+        if (!response.ok) throw new Error('Could not close NOVA')
+        setRunning(false)
+        setBackendOnline(true)
+        setStopArmed(false)
+        setStatusMessage('NOVA agent closed.')
+      } catch (error) {
+        console.error(error)
+        setStatusMessage('Could not close NOVA.')
+      }
+      return
+    }
+
+    runTask()
   }
 
   useEffect(() => {
@@ -394,6 +459,17 @@ useEffect(() => {
         const data = await response.json()
         setBackendOnline(true)
         setRunning(Boolean(data.running))
+
+        try {
+          const eventResponse = await fetch('http://127.0.0.1:8000/api/events')
+          if (eventResponse.ok) {
+            const eventData = await eventResponse.json()
+            setEvents(Array.isArray(eventData.events) ? eventData.events.slice(-80) : [])
+          }
+        } catch (eventError) {
+          console.debug('NOVA events:', eventError)
+        }
+
         if (!data.running && statusMessage === 'NOVA is working…') {
           setStatusMessage('')
         }
@@ -418,8 +494,7 @@ useEffect(() => {
 
       {/* ================= SIDEBAR ================= */}
 
-      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${!sidebarCollapsed && sidebarWidth < 180 ? 'compact' : ''}`}>
         <svg
           className="sidebar-curves"
           viewBox="0 0 207 700"
@@ -428,63 +503,102 @@ useEffect(() => {
         >
           <path
             className="sidebar-curve-back"
-            d="
-              M0 420
-              C45 444 82 470 104 510
-              C129 556 138 595 207 624
-              L207 700
-              L0 700Z
-            "
+            d="M0 420 C45 444 82 470 104 510 C129 556 138 595 207 624 L207 700 L0 700Z"
           />
-
           <path
             className="sidebar-curve-front"
-            d="
-              M0 665
-              C17 627 57 614 94 622
-              C145 633 171 677 207 713
-              L207 700
-              L0 700Z
-            "
+            d="M0 665 C17 627 57 614 94 622 C145 633 171 677 207 713 L207 700 L0 700Z"
           />
         </svg>
 
-        <div className="brand">
-          <div className="nova-logo">
-            <span></span>
+        <div className="sidebar-top">
+          <div className="brand">
+            <div className="nova-logo"><span></span></div>
+            <span className="nova-text">N O V A</span>
           </div>
-
-          <span className="nova-text">
-            N O V A
-          </span>
         </div>
 
-        <nav className="navigation">
-
-          <button className={`nav-item ${activeSection === 'home' ? 'active' : ''}`} onClick={() => setActiveSection('home')}>
-            <span className="nav-icon">
-              <HomeIcon />
-            </span>
+        <div className="sidebar-primary">
+          <button
+            type="button"
+            className={`nav-item ${activeSection === 'home' ? 'active' : ''}`}
+            onClick={() => {
+              // Home is always the starting point for a NEW conversation.
+              // Deselect the current chat so the next Home message creates a fresh chat.
+              setActiveChatId(null)
+              setActiveSection('home')
+              setTask('')
+              setEvents([])
+              setStatusMessage('')
+            }}
+          >
+            <span className="nav-icon"><HomeIcon /></span>
             <span className="nav-label">Home</span>
           </button>
+        </div>
 
-          <button className={`nav-item ${activeSection === 'chat' ? 'active' : ''}`} onClick={() => setActiveSection('chat')}>
-            <span className="nav-icon">
-              <ChatIcon />
-            </span>
-            <span className="nav-label">Chat</span>
-          </button>
+        <div className="sidebar-chats">
+          <div className="sidebar-chats-heading">
+            <span className="nav-label">Chats</span>
+            <span className="chat-count">{chats.length}</span>
+          </div>
+          <div className="sidebar-chat-list">
+            {chats.length === 0 ? (
+              <div className="sidebar-chat-empty nav-label">Your conversations will appear here.</div>
+            ) : chats.map((chat) => (
+              <div className={`sidebar-chat-item ${activeChatId === chat.id ? 'active' : ''}`} key={chat.id}>
+                <button type="button" className="sidebar-chat-select" onClick={() => openChat(chat.id)} title={chat.title || 'Chat'}>
+                  <span className="sidebar-chat-title">{chat.title || 'Chat'}</span>
+                  <span className="sidebar-chat-title-compact">{getChatInitials(chat.title || 'Chat')}</span>
+                </button>
+                <button type="button" className="sidebar-chat-delete" onClick={() => deleteChat(chat.id)} aria-label={`Delete ${chat.title || 'chat'}`} title="Delete chat">×</button>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <button className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`} onClick={() => setActiveSection('settings')}>
-            <span className="nav-icon">
-              <SettingsIcon />
-            </span>
-            <span className="nav-label">Settings</span>
-          </button>
+        <div className="sidebar-bottom">
+          <div className="profile-wrap" ref={profileRef}>
+            <div className="sidebar-profile-row">
+              <button
+                type="button"
+                className="sidebar-profile-button sidebar-settings-profile-button"
+                onClick={() => { setProfileOpen(false); setActiveSection('settings') }}
+                aria-label="Open Settings"
+                title="Settings"
+              >
+                <span className="sidebar-profile-avatar">{getInitials(userName)}</span>
+                <span className={`profile-inline-settings ${activeSection === 'settings' ? 'active' : ''}`}>
+                  <SettingsIcon />
+                </span>
+                <span className="sidebar-profile-name nav-label">{userName || 'Omkar'}</span>
+                <span className="sidebar-profile-more nav-label">•••</span>
+              </button>
+            </div>
 
-        </nav>
+            {profileOpen && (
+              <div className="profile-popover">
+                <div className="profile-popover-header">
+                  <div className="profile-popover-avatar">{getInitials(userName)}</div>
+                  <div>
+                    <span className="profile-popover-label">ACCOUNT</span>
+                    <strong>{userName || 'Omkar'}</strong>
+                  </div>
+                </div>
+                <label className="profile-name-label" htmlFor="nova-name">Your name</label>
+                <input id="nova-name" className="profile-name-input" value={nameDraft} onChange={(e) => updateUserName(e.target.value)} placeholder="Enter your name" />
+                <button type="button" className="profile-menu-button" onClick={() => { setProfileOpen(false); setActiveSection('settings') }}>
+                  <SettingsIcon /><span>Settings</span>
+                </button>
+                <button type="button" className="profile-menu-button theme-menu-button" onClick={() => setThemeMode(darkMode ? 'light' : 'dark')}>
+                  <span className="theme-menu-icon">{darkMode ? '☾' : '☼'}</span>
+                  <span>{darkMode ? 'Light mode' : 'Dark mode'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-        {/* Drag handle — resize the sidebar directly */}
         <div
           className="sidebar-resize-handle"
           onPointerDown={resizeSidebar}
@@ -492,20 +606,6 @@ useEffect(() => {
           aria-label="Resize sidebar"
           aria-orientation="vertical"
         />
-
-        <div className="sidebar-bottom">
-
-          <button
-            className="sidebar-collapse-button"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}
-          >
-            <span>{sidebarCollapsed ? '›' : '‹'}</span>
-          </button>
-
-        </div>
-
       </aside>
 
 
@@ -557,53 +657,6 @@ useEffect(() => {
         )}
 
 
-        {/* Top right */}
-
-        <div className="top-controls" ref={profileRef}>
-
-<button
-  className="theme-button"
-  onClick={() => setDarkMode(!darkMode)}
-  aria-label="Toggle dark mode"
->
-  {darkMode ? '☾' : '☼'}
-</button>
-
-          <button
-            className="profile-button"
-            onClick={openProfile}
-            aria-label="Open profile"
-            title={userName}
-          >
-            {getInitials(userName)}
-          </button>
-
-          {profileOpen && (
-            <div className="profile-popover">
-              <div className="profile-popover-header">
-                <div className="profile-popover-avatar">{getInitials(userName)}</div>
-                <div>
-                  <span className="profile-popover-label">ACCOUNT</span>
-                  <strong>{userName}</strong>
-                </div>
-              </div>
-
-              <label className="profile-name-label" htmlFor="nova-name">Your name</label>
-              <input
-                id="nova-name"
-                className="profile-name-input"
-                value={nameDraft}
-                onChange={(e) => updateUserName(e.target.value)}
-                placeholder="Enter your name"
-              />
-
-              <p className="profile-popover-hint">Your profile stays on this device. You can change your display name anytime.</p>
-            </div>
-          )}
-
-        </div>
-
-
         {activeSection === 'home' && (
           <div className="image-message">
 
@@ -644,10 +697,6 @@ useEffect(() => {
 
           <div className="task-box">
 
-            <button className="plus-button">
-              +
-            </button>
-
             <input
               value={task}
               onChange={(e) => setTask(e.target.value)}
@@ -663,11 +712,11 @@ useEffect(() => {
 
             <button
               className="send-button"
-              onClick={running ? stopTask : runTask}
-              aria-label={running ? 'Stop task' : 'Send task'}
-              title={running ? 'Stop task' : 'Run task'}
+              onClick={handleActionButton}
+              aria-label={running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : 'Send task'}
+              title={running || stopArmed ? (stopArmed && !running ? 'Close NOVA agent (press again)' : 'Stop task') : 'Run task'}
             >
-              {running ? '■' : '↑'}
+              {running || stopArmed ? '■' : '↑'}
             </button>
 
           </div>
@@ -817,115 +866,84 @@ useEffect(() => {
           <section className="section-page chat-page">
             <div className="chat-page-header">
               <div>
-                <p className="eyebrow">YOUR CONVERSATIONS</p>
-                <h1>Chat.</h1>
+                <p className="eyebrow">{activeChat ? 'CONVERSATION' : 'NEW CONVERSATION'}</p>
+                <h1>{activeChat?.title || 'Chat.'}</h1>
               </div>
-              <button className="new-chat-button" onClick={createNewChat}>
+              <button className="new-chat-button" type="button" onClick={createNewChat}>
                 + New chat
               </button>
             </div>
 
-            <div className="chat-layout">
-              <aside className="chat-history-panel">
-                <div className="chat-history-heading">
-                  <span>HISTORY</span>
-                  <span>{chats.length}</span>
+            <div className="chat-conversation-panel chat-conversation-focused chat-workspace">
+              {activeChat ? (
+                <div className="conversation-messages">
+                  {(activeChat.messages || []).map((message, index) => (
+                    <div
+                      className={`conversation-message ${message.role === 'user' ? 'user' : 'nova'}`}
+                      key={`${message.time || 'message'}-${index}`}
+                    >
+                      <span className="conversation-role">
+                        {message.role === 'user' ? 'YOU' : 'NOVA'}
+                      </span>
+                      <p>{message.content}</p>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <div className="conversation-empty">
+                  <div className="conversation-empty-mark">O</div>
+                  <h2>Start a new conversation.</h2>
+                  <p>Send a message below and NOVA will keep the conversation together.</p>
+                </div>
+              )}
 
-                {chats.length === 0 ? (
-                  <div className="chat-history-empty">Your conversations will appear here.</div>
-                ) : (
-                  <div className="chat-history-list">
-                    {chats.map((chat) => (
-                      <div
-                        className={`chat-history-item ${activeChatId === chat.id ? 'active' : ''}`}
-                        key={chat.id}
-                      >
-                        <button className="chat-history-select" onClick={() => openChat(chat.id)}>
-                          <strong>{chat.title || 'New chat'}</strong>
-                          <span>{chat.messages?.length || 0} prompt{(chat.messages?.length || 0) === 1 ? '' : 's'}</span>
-                        </button>
-                        <button
-                          className="chat-delete-button"
-                          onClick={() => deleteChat(chat.id)}
-                          aria-label={`Delete ${chat.title || 'chat'}`}
-                          title="Delete chat"
-                        >
-                          ×
-                        </button>
+              {events.length > 0 && (
+                <div className="nova-live-activity" aria-live="polite" style={{
+                  margin: '0 auto 16px',
+                  width: 'min(860px, calc(100% - 48px))',
+                  padding: '14px 16px',
+                  borderRadius: '18px',
+                  border: '1px solid rgba(40, 45, 38, 0.10)',
+                  background: 'rgba(255, 255, 255, 0.48)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)'
+                }}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'9px'}}>
+                    <span style={{fontSize:'10px',letterSpacing:'0.14em',fontWeight:700,opacity:0.58}}>LIVE ACTIVITY</span>
+                    <span style={{width:'7px',height:'7px',borderRadius:'50%',background:running?'#5f735d':'#92988e',boxShadow:running?'0 0 0 4px rgba(95,115,93,0.12)':'none'}} />
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'7px',maxHeight:'190px',overflowY:'auto'}}>
+                    {events.slice(-8).map((event) => (
+                      <div key={event.id} style={{display:'flex',alignItems:'flex-start',gap:'9px',fontSize:'12px',lineHeight:1.45,opacity:event.kind==='log'?0.66:0.9}}>
+                        <span style={{minWidth:'6px',width:'6px',height:'6px',marginTop:'6px',borderRadius:'50%',background:event.kind==='error'?'#a55c55':(event.kind==='success'||event.kind==='done')?'#668062':'#8b9186'}} />
+                        <span>{event.message}</span>
                       </div>
                     ))}
                   </div>
-                )}
-              </aside>
-
-              <div className="chat-conversation-panel">
-                {activeChat ? (
-                  <>
-                    <div className="conversation-title">{activeChat.title || 'New chat'}</div>
-
-                    <div className="conversation-messages">
-                      {(activeChat.messages || []).map((message, index) => (
-                        <div
-                          className={`conversation-message ${message.role === 'user' ? 'user' : 'nova'}`}
-                          key={`${message.time || 'message'}-${index}`}
-                        >
-                          <span className="conversation-role">
-                            {message.role === 'user' ? 'YOU' : 'NOVA'}
-                          </span>
-                          <p>{message.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="conversation-empty">
-                    <div className="conversation-empty-mark">O</div>
-                    <h2>Start a new conversation.</h2>
-                    <p>
-                      All prompts you send will stay together in this chat until you choose New chat.
-                    </p>
-                  </div>
-                )}
-
-                <div className="task-box chat-task-box">
-                  <button
-                    className="plus-button"
-                    type="button"
-                    aria-label="New chat"
-                    title="New chat"
-                    onClick={createNewChat}
-                  >
-                    +
-                  </button>
-
-                  <input
-                    value={task}
-                    onChange={(e) => setTask(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') runTask()
-                    }}
-                    placeholder={activeChat ? 'Continue this conversation...' : 'Start a new conversation...'}
-                  />
-
-                  <button
-                    className="microphone"
-                    aria-label="Voice input"
-                    type="button"
-                  >
-                    <MicIcon />
-                  </button>
-
-                  <button
-                    className="send-button"
-                    onClick={running ? stopTask : runTask}
-                    aria-label={running ? 'Stop task' : 'Send task'}
-                    title={running ? 'Stop task' : 'Send task'}
-                    type="button"
-                  >
-                    {running ? '■' : '↑'}
-                  </button>
                 </div>
+              )}
+
+              <div className="task-box chat-task-box">
+                <input
+                  value={task}
+                  onChange={(e) => setTask(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runTask()
+                  }}
+                  placeholder={activeChat ? 'Continue this conversation...' : 'Start a new conversation...'}
+                />
+                <button className="microphone" aria-label="Voice input" type="button">
+                  <MicIcon />
+                </button>
+                <button
+                  className="send-button"
+                  onClick={handleActionButton}
+                  aria-label={running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : 'Send message'}
+                  title={running || stopArmed ? (stopArmed && !running ? 'Close NOVA agent (press again)' : 'Stop task') : 'Send message'}
+                  type="button"
+                >
+                  {running || stopArmed ? '■' : '↑'}
+                </button>
               </div>
             </div>
           </section>
@@ -933,7 +951,54 @@ useEffect(() => {
           <section className="section-page settings-page">
             <p className="eyebrow">NOVA PREFERENCES</p>
             <h1>Settings.</h1>
-            <div className="settings-coming-soon">COMING SOON</div>
+
+            <div className="settings-panel">
+              <section className="settings-card">
+                <div className="settings-card-copy">
+                  <span className="settings-card-label">PROFILE</span>
+                  <h2>Display name</h2>
+                  <p>This name is used across your NOVA interface.</p>
+                </div>
+                <input
+                  className="settings-name-input"
+                  value={nameDraft}
+                  onChange={(e) => updateUserName(e.target.value)}
+                  placeholder="Enter your name"
+                  aria-label="Display name"
+                />
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-card-copy">
+                  <span className="settings-card-label">APPEARANCE</span>
+                  <h2>Theme</h2>
+                  <p>Choose how NOVA looks on this device.</p>
+                </div>
+                <div className="settings-theme-options">
+                  <button type="button" className={themeMode === 'light' ? 'selected' : ''} onClick={() => setThemeMode('light')}>
+                    ☼ <span>Light</span>
+                  </button>
+                  <button type="button" className={themeMode === 'dark' ? 'selected' : ''} onClick={() => setThemeMode('dark')}>
+                    ☾ <span>Dark</span>
+                  </button>
+                  <button type="button" className={themeMode === 'system' ? 'selected' : ''} onClick={() => setThemeMode('system')}>
+                    ◐ <span>System</span>
+                  </button>
+                </div>
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-card-copy">
+                  <span className="settings-card-label">SYSTEM</span>
+                  <h2>Backend connection</h2>
+                  <p>The local NOVA backend must be running for computer tasks.</p>
+                </div>
+                <div className={`settings-status ${backendOnline ? 'online' : ''}`}>
+                  <span className="backend-dot"></span>
+                  <span>{backendOnline ? 'Connected' : 'Not connected'}</span>
+                </div>
+              </section>
+            </div>
           </section>
         )}
 

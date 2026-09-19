@@ -1,37 +1,43 @@
-# Python cache / compiled files
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-*.pyd
+.venv/
+venv/
+env/
 
-# Node / Vite
-node_modules/
-frontend/node_modules/
+# PyInstaller
+build/
 dist/
-frontend/dist/
-.vite/
+*.manifest
+*.toc
+*.pyz
+*.pkg
 
-# NOVA browser profiles
+# NOVA local browser profiles
 BraveAgentProfile/
 BraveAgentProfile_old/
 BraveProfile/
 
-# Local secrets / credentials
+# NOVA local data
+chat_history.json
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environment / secrets
 .env
 .env.*
 !.env.example
-google_token.json
-google_credentials.json
-
-# Local NOVA data
-chat_history.json
 
 # Logs
 *.log
 
-# Old / unused files
-app.py
-
 # OS files
-Thumbs.db
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
