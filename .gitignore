@@ -41,3 +41,19 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# NOVA local runtime data (generated per installation; never commit personal state)
+nova_memory.json
+nova_memory.json.tmp
+nova_page_text/
+nova_website_memory.sqlite3
+nova_website_memory.sqlite3-shm
+nova_website_memory.sqlite3-wal
+
+# NOVA local runtime data
+NOVA.exe
+nova_memory.json
+nova_page_text/
+nova_website_memory.sqlite3
+nova_website_memory.sqlite3-shm
+nova_website_memory.sqlite3-wal

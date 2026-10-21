@@ -9,6 +9,18 @@ from urllib.parse import quote_plus, urljoin
 from ollama import chat
 from playwright.sync_api import sync_playwright
 
+try:
+    import website_memory as _website_memory
+except Exception as _website_memory_import_error:
+    _website_memory = None
+    print(f"⚠️ Website memory is unavailable: {_website_memory_import_error}")
+
+try:
+    import website_directory as _website_directory
+except Exception as _website_directory_import_error:
+    _website_directory = None
+    print(f"⚠️ Local website directory is unavailable: {_website_directory_import_error}")
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -70,6 +82,12 @@ RENDER_WAIT = 0.05
 # Number of previous user/agent turns supplied to Qwen.
 CONTEXT_TURNS = 8
 
+# Additive persistence + screen awareness. Existing features stay enabled.
+MEMORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nova_memory.json")
+PAGE_TEXT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nova_page_text")
+LAST_PAGE_TEXT = os.path.join(PAGE_TEXT_DIR, "latest.txt")
+MEMORY_TASK_LIMIT = 30
+
 # Conversational mode: casual messages are handled without opening/observing
 # the browser. This keeps NOVA feeling like a real chat assistant.
 FAST_GREETING_REPLIES = {
@@ -110,6 +128,139 @@ CONVERSATION_HISTORY = []
 ACTIVE_SITE = ""
 
 
+def _load_agent_memory():
+    """Load persistent notes without making startup depend on the file."""
+    try:
+        with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            data = {}
+        data.setdefault("history", [])
+        data.setdefault("completed_tasks", [])
+        data.setdefault("recipes", [])
+        return data
+    except (OSError, ValueError, TypeError):
+        return {"history": [], "completed_tasks": [], "recipes": []}
+
+
+AGENT_MEMORY = _load_agent_memory()
+
+
+def _ensure_runtime_paths():
+    """Create NOVA's private runtime folder and empty memory file on first run.
+
+    Existing user data is never replaced. Runtime state should stay local and
+    should not be committed to the source repository.
+    """
+    try:
+        os.makedirs(PAGE_TEXT_DIR, exist_ok=True)
+    except OSError as e:
+        print(f"⚠️ Could not create NOVA page-text folder: {e}")
+
+    if not os.path.exists(MEMORY_PATH):
+        # Exclusive creation prevents overwriting a file created by another process.
+        try:
+            with open(MEMORY_PATH, "x", encoding="utf-8") as f:
+                json.dump(
+                    {"history": [], "completed_tasks": [], "recipes": []},
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except FileExistsError:
+            pass
+        except OSError as e:
+            print(f"⚠️ Could not initialize NOVA memory: {e}")
+
+
+_ensure_runtime_paths()
+
+
+def _save_agent_memory():
+    """Persist memory atomically so a partial write doesn't corrupt it."""
+    temp_path = MEMORY_PATH + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(AGENT_MEMORY, f, ensure_ascii=False, indent=2)
+        os.replace(temp_path, MEMORY_PATH)
+    except OSError as e:
+        print(f"⚠️ Could not save NOVA memory: {e}")
+
+
+def _remember_completed_task(command, result, status="done", start_url="", end_url="", actions=None):
+    """Keep a durable task log; never treat old actions as already completed now."""
+    item = {
+        "user": str(command).strip(),
+        "result": str(result or "").strip()[:1000],
+        "status": str(status),
+        "start_url": str(start_url or ""),
+        "end_url": str(end_url or ""),
+        "actions": actions if isinstance(actions, list) else [],
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    tasks = AGENT_MEMORY.setdefault("completed_tasks", [])
+    tasks.append(item)
+    AGENT_MEMORY["completed_tasks"] = tasks[-MEMORY_TASK_LIMIT:]
+    _save_agent_memory()
+
+
+def memory_for_qwen():
+    """Short persistent memory context for faster, more consistent planning."""
+    tasks = AGENT_MEMORY.get("completed_tasks", [])
+    if not tasks:
+        return "No saved task memories yet."
+    lines = []
+    for item in tasks[-6:]:
+        lines.append(
+            f"TASK: {item.get('user', '')} | STATUS: {item.get('status', '')} | "
+            f"START: {item.get('start_url', '')} | END: {item.get('end_url', '')} | "
+            f"RESULT: {item.get('result', '')[:180]}"
+        )
+    return "\n".join(lines)
+
+
+def _save_page_text_snapshot(observation):
+    """Save a readable text snapshot of the current page, not an image."""
+    if not isinstance(observation, dict) or not observation.get("url"):
+        return ""
+    try:
+        os.makedirs(PAGE_TEXT_DIR, exist_ok=True)
+        lines = [
+            "NOVA PAGE TEXT SNAPSHOT",
+            "=" * 72,
+            f"Captured: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Title: {observation.get('title', '')}",
+            f"URL: {observation.get('url', '')}",
+            "",
+            "PAGE TEXT",
+            "=" * 72,
+            str(observation.get("page_text_full") or observation.get("text") or ""),
+            "",
+            "VISIBLE LINKS",
+            "=" * 72,
+        ]
+        for i, link in enumerate(observation.get("links", []), 1):
+            lines.append(
+                f"{i}. {link.get('text', '')} | aria={link.get('aria', '')} | href={link.get('href', '')}"
+            )
+        lines.extend(["", "VISIBLE BUTTONS", "=" * 72])
+        for i, button in enumerate(observation.get("buttons", []), 1):
+            lines.append(f"{i}. {button.get('text', '')} | aria={button.get('aria', '')}")
+        lines.extend(["", "VISIBLE INPUTS", "=" * 72])
+        for i, field in enumerate(observation.get("inputs", []), 1):
+            lines.append(
+                f"{i}. type={field.get('type', '')} | placeholder={field.get('placeholder', '')} | "
+                f"aria={field.get('aria', '')} | name={field.get('name', '')}"
+            )
+        with open(LAST_PAGE_TEXT, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        return LAST_PAGE_TEXT
+    except Exception as e:
+        print(f"⚠️ Could not save page text snapshot: {e}")
+        return ""
+
+
 # ============================================================
 # ESC KILL SWITCH
 # ============================================================
@@ -144,11 +295,28 @@ def esc_listener():
 # ============================================================
 
 def kill_brave():
+    """Stop only Brave processes launched with NOVA's dedicated profile.
+
+    Never terminate every brave.exe process: the user may have unrelated
+    Brave windows open. If the profile is not in use, this does nothing.
+    """
+    if os.name != "nt":
+        return
     try:
+        profile = os.path.normcase(os.path.abspath(PROFILE_PATH))
+        ps = (
+            "$profile = [System.IO.Path]::GetFullPath('" + profile.replace("'", "''") + "'); "
+            "Get-CimInstance Win32_Process | "
+            "Where-Object { $_.Name -ieq 'brave.exe' -and $_.CommandLine -and "
+            "$_.CommandLine.ToLower().Contains($profile.ToLower()) } | "
+            "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+        )
         subprocess.run(
-            ["taskkill", "/F", "/IM", "brave.exe"],
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
         )
         time.sleep(0.30)
     except Exception:
@@ -158,15 +326,28 @@ def kill_brave():
 def start_browser():
     global _browser_context, _page, _playwright, _listener
 
-    if _page is not None:
-        return True
+    # Do not trust a non-None page reference: Brave or its tab may have been
+    # closed by the user, or Playwright's context may have crashed.
+    if _page is not None and _browser_context is not None and _playwright is not None:
+        try:
+            pages = _browser_context.pages
+            if not _page.is_closed() and any(page == _page for page in pages):
+                _ = _page.url
+                return True
+        except Exception:
+            pass
+        close_browser()
 
     try:
+        if not BRAVE_PATH or not os.path.isfile(BRAVE_PATH):
+            print("❌ Brave executable was not found. Install Brave or correct BRAVE_PATH.")
+            _browser_context = None
+            _page = None
+            _playwright = None
+            return False
+
         os.makedirs(PROFILE_PATH, exist_ok=True)
-
-        # Only done when the agent itself starts.
         kill_brave()
-
         _playwright = sync_playwright().start()
 
         _browser_context = _playwright.chromium.launch_persistent_context(
@@ -200,7 +381,20 @@ def start_browser():
         return True
 
     except Exception as e:
-        print(f"❌ Could not start Brave:\n{e}")
+        print(f"❌ Could not start Brave:\\n{e}")
+        try:
+            if _browser_context is not None:
+                _browser_context.close()
+        except Exception:
+            pass
+        try:
+            if _playwright is not None:
+                _playwright.stop()
+        except Exception:
+            pass
+        _browser_context = None
+        _page = None
+        _playwright = None
         return False
 
 
@@ -222,6 +416,54 @@ def close_browser():
     _browser_context = None
     _page = None
     _playwright = None
+
+
+def _browser_is_usable():
+    """Return whether the current Playwright page/context can still be used."""
+    if _page is None or _browser_context is None or _playwright is None:
+        return False
+    try:
+        pages = _browser_context.pages
+        # is_closed() alone can miss a stale page after Chromium exits.
+        if _page.is_closed() or not any(page == _page for page in pages):
+            return False
+        _ = _page.url
+        return True
+    except Exception:
+        return False
+
+
+def _ensure_browser_ready():
+    """Reopen NOVA's Brave window when its page/context was closed."""
+    if _browser_is_usable():
+        return True, ""
+
+    print("⚠️ Brave page/context is no longer usable. Rebuilding the session…")
+    close_browser()
+    started = start_browser()
+    if started and _browser_is_usable():
+        print("✅ Brave session recovered; continuing the task.")
+        return True, ""
+
+    message = (
+        "Browser recovery failed: NOVA could not create a live Brave page. "
+        "Check the Brave installation, backend console, and whether "
+        "BraveAgentProfile is locked by another process."
+    )
+    print("❌ " + message)
+    return False, message
+
+
+def _is_closed_browser_error(error):
+    message = str(error).lower()
+    return any(term in message for term in (
+        "target page, context or browser has been closed",
+        "browser has been closed",
+        "context has been closed",
+        "page has been closed",
+        "target closed",
+        "browser.new_page: target page, context or browser has been closed",
+    ))
 
 
 def tiny_wait():
@@ -291,18 +533,32 @@ def add_history(user_command, result=None):
     if len(CONVERSATION_HISTORY) > CONTEXT_TURNS:
         del CONVERSATION_HISTORY[:-CONTEXT_TURNS]
 
+    # Keep a small persistent conversational memo across restarts.
+    persistent = AGENT_MEMORY.setdefault("history", [])
+    persistent.append(item)
+    AGENT_MEMORY["history"] = persistent[-CONTEXT_TURNS:]
+    _save_agent_memory()
+
 
 def history_for_qwen():
-    if not CONVERSATION_HISTORY:
-        return "No previous conversation."
-
     lines = []
+
+    if not CONVERSATION_HISTORY:
+        lines.append("No previous conversation in this session.")
 
     for item in CONVERSATION_HISTORY:
         lines.append("USER: " + item["user"])
 
         if item["result"]:
             lines.append("AGENT RESULT: " + item["result"][:500])
+
+    persistent_history = AGENT_MEMORY.get("history", [])
+    if persistent_history:
+        lines.append("PERSISTENT RECENT HISTORY:")
+        for item in persistent_history[-4:]:
+            lines.append("USER: " + str(item.get("user", "")))
+            if item.get("result"):
+                lines.append("AGENT RESULT: " + str(item.get("result", ""))[:250])
 
     return "\n".join(lines)
 
@@ -406,6 +662,470 @@ def handle_conversation(command):
 
 
 # ============================================================
+# WEBSITE MEMORY HELPERS
+# ============================================================
+
+def _website_memory_scope():
+    """Return the current host/path scope without query strings or fragments."""
+    if _page is None:
+        return "", "/"
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(_page.url)
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        path = parsed.path or "/"
+        if path != "/":
+            path = path.rstrip("/") or "/"
+        return host, path
+    except Exception:
+        return "", "/"
+
+
+def _refresh_page_map_if_navigated(previous_url):
+    """Immediately learn a newly reached page after a navigation action."""
+    try:
+        if _page is not None and _page.url and _page.url != str(previous_url or ""):
+            observe_page()
+    except Exception:
+        pass
+
+
+def _persist_page_profile(observation):
+    """Persist page identity and useful interface metadata, never page body text."""
+    if _website_memory is None or not isinstance(observation, dict):
+        return
+    url = str(observation.get("url") or "")
+    if not url.startswith(("http://", "https://")):
+        return
+    try:
+        from urllib.parse import urlsplit, urlunsplit
+        import hashlib
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        path = parsed.path or "/"
+        if path != "/":
+            path = path.rstrip("/") or "/"
+        title = str(observation.get("title") or "")[:240]
+        links = observation.get("links") if isinstance(observation.get("links"), list) else []
+        buttons = observation.get("buttons") if isinstance(observation.get("buttons"), list) else []
+        inputs = observation.get("inputs") if isinstance(observation.get("inputs"), list) else []
+        forms = observation.get("forms") if isinstance(observation.get("forms"), list) else []
+        # Persist link destinations without query strings/fragments; these can contain
+        # tracking identifiers or user-specific tokens. The live DOM still retains them.
+        safe_links = []
+        for item in links[:60]:
+            if not isinstance(item, dict):
+                continue
+            link = dict(item)
+            href = str(link.get("href") or "")
+            if href:
+                try:
+                    from urllib.parse import urljoin, urlunsplit
+                    parsed_href = urlsplit(urljoin(url, href))
+                    if parsed_href.scheme in ("http", "https"):
+                        link["href"] = urlunsplit((parsed_href.scheme, parsed_href.netloc, parsed_href.path, "", ""))
+                except Exception:
+                    pass
+            safe_links.append(link)
+        controls = {"links": safe_links, "buttons": buttons[:40], "inputs": inputs[:30], "forms": forms[:20]}
+        signature = json.dumps({
+            "title": title,
+            "links": [(x.get("text", ""), x.get("href", "")) for x in links[:30] if isinstance(x, dict)],
+            "buttons": [(x.get("text", ""), x.get("aria", ""), x.get("title", "")) for x in buttons[:20] if isinstance(x, dict)],
+            "inputs": [(x.get("type", ""), x.get("placeholder", ""), x.get("aria", ""), x.get("name", "")) for x in inputs[:15] if isinstance(x, dict)]
+        }, ensure_ascii=False, sort_keys=True)
+        fingerprint = hashlib.sha256(signature.encode("utf-8", "ignore")).hexdigest()[:24]
+        low = (title + " " + path).lower()
+        if "wikipedia.org" in host and path == "/":
+            purpose = "Wikipedia language selection"
+        elif any(word in low for word in ("search", "results")):
+            purpose = "search or results page"
+        elif any(word in low for word in ("login", "signin", "sign-in")):
+            purpose = "sign-in page"
+        else:
+            purpose = ("page titled " + title) if title else "web page"
+        normalized_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
+        _website_memory.save_page_profile(host, path, title, normalized_url, purpose, fingerprint, controls)
+        profiles = _website_memory.get_page_profiles(host, path, limit=1)
+        if profiles and profiles[0].get("fingerprint") == fingerprint:
+            print(f"🧠 Page map saved: {host}{path} · {len(links)} links · {len(buttons)} buttons · {len(inputs)} inputs")
+    except Exception as error:
+        print(f"⚠️ Could not save page map: {error}")
+
+
+def _semantic_click_visible_target(target):
+    """Find a high-confidence semantic match, e.g. 'English Wikipedia' -> 'English'."""
+    if _page is None or not target:
+        return False, "No page or target."
+    try:
+        match = _page.evaluate(r"""
+        (target) => {
+          const clean = v => (v || "").replace(/\s+/g, " ").trim();
+          const norm = v => clean(v).toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+          const visible = el => { const r=el.getBoundingClientRect(), s=getComputedStyle(el); return r.width>0 && r.height>0 && s.display!=="none" && s.visibility!=="hidden"; };
+          const raw = norm(target);
+          const ignored = new Set(["open","go","to","visit","click","tap","press","on","the","a","an","page","website","site","please","wikipedia","edition","button","link","tab","option","menu","item","control","icon","language"]);
+          const tokens = raw.split(/\s+/).filter(t => t && !ignored.has(t));
+          const candidates = [...document.querySelectorAll('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="tab"]')].filter(visible);
+          const scored = candidates.map(el => {
+            const label = clean(el.innerText || el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("alt"));
+            const aria = clean(el.getAttribute("aria-label"));
+            const title = clean(el.getAttribute("title"));
+            const href = clean(el.getAttribute("href") || el.href || "");
+            const context = norm([label, aria, title, href].join(" "));
+            const nl = norm(label || aria || title);
+            let score = 0;
+            if (nl === raw) score = 1.0;
+            else if (nl && raw && (nl.includes(raw) || raw.includes(nl))) score = 0.88;
+            const matched = tokens.filter(t => context.includes(t)).length;
+            if (tokens.length) score = Math.max(score, (matched / tokens.length) * 0.78);
+            if (tokens.includes("english") && /(^|\\.)en\\.wikipedia\\.org/i.test(href)) score = Math.max(score, 0.98);
+            if (tokens.includes("english") && /(^|\/)wiki\//i.test(href) && /english/i.test(label)) score = Math.max(score, 0.92);
+            return {el, label, href, score, role: el.getAttribute("role") || (el.tagName === "A" ? "link" : "button")};
+          }).sort((a,b) => b.score-a.score);
+          if (!scored.length || scored[0].score < 0.70) return null;
+          if (scored[1] && scored[0].score - scored[1].score < 0.08 && scored[0].label !== scored[1].label) return null;
+          const best = scored[0];
+          return {label: best.label, href: best.href, role: best.role, score: best.score};
+        }
+        """, str(target))
+        if not match:
+            return False, "No confident semantic match found."
+        href = str(match.get("href") or "")
+        label = str(match.get("label") or "")
+        role = str(match.get("role") or "")
+        locator = None
+        if role and label:
+            try:
+                candidate = _page.get_by_role(role, name=label, exact=True)
+                if candidate.count() == 1:
+                    locator = candidate
+            except Exception:
+                pass
+        if locator is None and href:
+            try:
+                candidate = _page.locator("a").filter(has=_page.locator(f'a[href="{href}"]'))
+                if candidate.count() == 1:
+                    locator = candidate
+            except Exception:
+                pass
+        if locator is None:
+            return False, "Semantic match could not be converted to a unique Playwright locator."
+        previous_url = _page.url
+        locator.click(timeout=CLICK_TIMEOUT)
+        tiny_wait()
+        _refresh_page_map_if_navigated(previous_url)
+        if label:
+            actual_descriptor = _describe_target_locator("CLICK_TEXT", label)
+            _remember_website_locator("CLICK_TEXT", target, actual_descriptor, _website_memory_scope())
+        print(f"🧭 Semantic match: '{target}' → '{label}' (confidence {match.get('score', 0):.2f})")
+        return True, f"Clicked {label or target} using semantic match."
+    except Exception as error:
+        return False, f"Semantic matching failed: {error}"
+
+
+def search_current_page(query):
+    """Search the current site using its live search field/form, including icon-only submit buttons."""
+    if _page is None:
+        return False, "Browser unavailable."
+    query = str(query or "").strip()
+    if not query:
+        return False, "Empty search query."
+    try:
+        before_url = _page.url
+        before_text = _page.locator("body").inner_text(timeout=1000)[:1200]
+    except Exception:
+        before_url, before_text = "", ""
+
+    # Reuse a previously validated search-field locator first, but only after
+    # checking uniqueness and visibility on the current page.
+    if _website_memory is not None:
+        host, path = _website_memory_scope()
+        try:
+            records = _website_memory.get_locators(host, path, "TYPE_TEXT", "search") if host else []
+        except Exception:
+            records = []
+        for record in records:
+            try:
+                remembered_field = _locator_from_memory(record)
+                if remembered_field is None or remembered_field.count() != 1 or not remembered_field.is_visible():
+                    _website_memory.record_locator_result(record["id"], False)
+                    continue
+                remembered_field.fill(query, timeout=TYPE_TIMEOUT)
+                try:
+                    remembered_field.press("Enter", timeout=TYPE_TIMEOUT)
+                except Exception:
+                    pass
+                tiny_wait()
+                try:
+                    changed = _page.url != before_url or _page.locator("body").inner_text(timeout=1000)[:1200] != before_text
+                except Exception:
+                    changed = _page.url != before_url
+                if changed:
+                    _website_memory.record_locator_result(record["id"], True)
+                    print(f"🧠 Website memory hit: {host} · search field")
+                    return True, f"Searched current website for: {query}"
+                _website_memory.record_locator_result(record["id"], False)
+            except Exception:
+                try:
+                    _website_memory.record_locator_result(record["id"], False)
+                except Exception:
+                    pass
+
+    try:
+        spec = _page.evaluate(r"""
+        () => {
+          const clean = v => (v || "").replace(/\s+/g," ").trim();
+          const visible = el => { const r=el.getBoundingClientRect(),s=getComputedStyle(el); return r.width>0&&r.height>0&&s.display!=="none"&&s.visibility!=="hidden"&&!el.disabled; };
+          const all = [...document.querySelectorAll('input,textarea,[contenteditable="true"]')];
+          const candidates = all.map((el,index) => {
+            if (!visible(el)) return null;
+            const type = (el.getAttribute("type")||"").toLowerCase();
+            const hint = clean([el.getAttribute("placeholder"),el.getAttribute("aria-label"),el.getAttribute("name"),el.getAttribute("title"),el.labels?[...el.labels].map(x=>x.innerText).join(" "):""].join(" ")).toLowerCase();
+            let score = type === "search" ? 1.0 : 0;
+            if (/search|query|keyword|find/.test(hint)) score = Math.max(score,0.92);
+            if (el.form && el.form.querySelector('button[type="submit"],input[type="submit"]')) score = Math.max(score,0.72);
+            if (type === "text" && el.form) score = Math.max(score,0.45);
+            return {index,score,type,placeholder:el.getAttribute("placeholder")||"",aria:el.getAttribute("aria-label")||"",name:el.getAttribute("name")||"",id:el.id||"",formIndex:el.form?[...document.forms].indexOf(el.form):-1};
+          }).filter(Boolean).sort((a,b)=>b.score-a.score);
+          return candidates.length && candidates[0].score >= 0.45 ? candidates[0] : null;
+        }
+        """)
+        if not spec:
+            return False, "No likely search field found on the current page."
+        all_inputs = _page.locator('input,textarea,[contenteditable="true"]')
+        field = all_inputs.nth(int(spec["index"]))
+        if field.count() != 1 or not field.is_visible():
+            return False, "Search field changed during inspection."
+        scope_before = _website_memory_scope()
+        descriptor = _describe_target_locator("TYPE_TEXT", "search")
+        field.fill(query, timeout=TYPE_TIMEOUT)
+        # Enter is the least brittle method and works with most HTML search forms.
+        try:
+            field.press("Enter", timeout=TYPE_TIMEOUT)
+        except Exception:
+            pass
+        tiny_wait()
+        try:
+            changed = _page.url != before_url or _page.locator("body").inner_text(timeout=1000)[:1200] != before_text
+        except Exception:
+            changed = _page.url != before_url
+        if changed:
+            _remember_website_locator("TYPE_TEXT", "search", descriptor, scope_before)
+            print(f"🔎 Current-site search submitted with Enter: {query}")
+            return True, f"Searched current website for: {query}"
+        # If Enter did not submit, try a submit/icon button associated with that input's form.
+        try:
+            form = field.locator("xpath=ancestor::form[1]")
+            if form.count() == 1:
+                submit = form.locator('button[type="submit"],input[type="submit"],[aria-label*="search" i],[title*="search" i],button:has(svg)')
+                visible = [submit.nth(i) for i in range(min(submit.count(), 8)) if submit.nth(i).is_visible()]
+                if visible:
+                    visible[0].click(timeout=CLICK_TIMEOUT)
+                    tiny_wait()
+                    _remember_website_locator("TYPE_TEXT", "search", descriptor, scope_before)
+                    print(f"🔎 Current-site search submitted with form control: {query}")
+                    return True, f"Searched current website for: {query}"
+        except Exception:
+            pass
+        # Do not report success if no meaningful page transition was observed.
+        return False, "Search was entered, but submission could not be verified."
+    except Exception as error:
+        return False, f"Current-site search failed: {error}"
+
+
+def _describe_target_locator(action, target):
+    """Describe a stable locator for the intended visible control, if possible."""
+    if _page is None:
+        return None
+    try:
+        return _page.evaluate(r"""
+            ({action, target}) => {
+                const clean = value => (value || "").replace(/\s+/g, " ").trim();
+                const visible = el => {
+                    const r = el.getBoundingClientRect();
+                    const s = getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 && s.display !== "none" &&
+                           s.visibility !== "hidden" && s.pointerEvents !== "none";
+                };
+                const norm = value => clean(value).toLocaleLowerCase();
+                const label = el => clean(el.getAttribute("aria-label") || el.innerText ||
+                                          el.getAttribute("title") || el.getAttribute("alt"));
+                let el = null;
+                if (action === "CLICK_HREF") {
+                    el = [...document.querySelectorAll("a[href]")].find(a => {
+                        const raw = a.getAttribute("href") || "";
+                        return visible(a) && (raw === target || a.href === target);
+                    });
+                } else if (action === "CLICK_TEXT") {
+                    const candidates = [...document.querySelectorAll('a,button,[role="button"],[role="link"]')].filter(visible);
+                    const wanted = norm(target);
+                    el = candidates.find(a => norm(label(a)) === wanted) ||
+                         candidates.find(a => norm(label(a)).includes(wanted));
+                    if (!el) {
+                        el = [...document.querySelectorAll("body *")].find(node => {
+                            if (!visible(node) || node.children.length > 0) return false;
+                            return norm(label(node) || node.textContent) === wanted;
+                        });
+                    }
+                } else if (action === "TYPE_TEXT") {
+                    const candidates = [...document.querySelectorAll('input,textarea,select,[contenteditable="true"]')].filter(visible);
+                    const wanted = norm(target);
+                    el = candidates.find(node => {
+                        if (!wanted) return false;
+                        const values = [node.getAttribute("placeholder"), node.getAttribute("aria-label"),
+                                        node.getAttribute("name"), node.getAttribute("title"), node.getAttribute("type"),
+                                        node.labels ? [...node.labels].map(x => x.innerText).join(" ") : ""];
+                        return values.some(value => norm(value) === wanted || norm(value).includes(wanted));
+                    });
+                }
+                if (!el) return null;
+                const attrs = ["data-testid", "data-test", "data-qa"];
+                for (const attr of attrs) {
+                    const value = el.getAttribute(attr);
+                    if (value && document.querySelectorAll(`[${attr}="${CSS.escape(value)}"]`).length === 1)
+                        return {type: "testid", value};
+                }
+                const id = el.getAttribute("id");
+                if (id && document.querySelectorAll(`[id="${CSS.escape(id)}"]`).length === 1)
+                    return {type: "id", value: id};
+                if (action === "TYPE_TEXT") {
+                    const placeholder = el.getAttribute("placeholder");
+                    if (placeholder && [...document.querySelectorAll("input,textarea")].filter(x => visible(x) && x.getAttribute("placeholder") === placeholder).length === 1)
+                        return {type: "placeholder", value: placeholder};
+                    const name = el.getAttribute("name");
+                    if (name && document.querySelectorAll(`[name="${CSS.escape(name)}"]`).length === 1)
+                        return {type: "name", value: name};
+                    const inputType = el.getAttribute("type");
+                    if (inputType && [...document.querySelectorAll("input")].filter(x => visible(x) && x.getAttribute("type") === inputType).length === 1)
+                        return {type: "input_type", value: inputType};
+                }
+                if (action === "CLICK_HREF") {
+                    const href = el.getAttribute("href");
+                    if (href) return {type: "href", value: href};
+                }
+                const role = el.getAttribute("role") ||
+                    (el.tagName === "A" ? "link" : el.tagName === "BUTTON" ? "button" :
+                     /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) ? (el.type === "search" ? "searchbox" : "textbox") : "");
+                const name = label(el) || (el.labels ? clean([...el.labels].map(x => x.innerText).join(" ")) : "");
+                if (role && name) return {type: "role", value: JSON.stringify({role, name})};
+                if (action === "TYPE_TEXT" && el.getAttribute("aria-label"))
+                    return {type: "aria", value: el.getAttribute("aria-label")};
+                return null;
+            }
+        """, {"action": str(action).upper(), "target": str(target or "")})
+    except Exception:
+        return None
+
+
+def _locator_from_memory(record):
+    """Convert a stored descriptor to a Playwright locator."""
+    kind = record.get("locator_type")
+    value = record.get("locator_value", "")
+    if kind == "testid":
+        return _page.get_by_test_id(value)
+    if kind == "id":
+        escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return _page.locator(f'[id="{escaped}"]')
+    if kind == "placeholder":
+        return _page.get_by_placeholder(value, exact=True)
+    if kind == "name":
+        escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return _page.locator(f'[name="{escaped}"]')
+    if kind == "input_type":
+        escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return _page.locator(f'input[type="{escaped}"]:visible')
+    if kind == "href":
+        escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return _page.locator(f'a[href="{escaped}"]')
+    if kind == "aria":
+        return _page.get_by_label(value, exact=True)
+    if kind == "role":
+        spec = json.loads(value)
+        return _page.get_by_role(spec["role"], name=spec["name"], exact=True)
+    return None
+
+
+def _try_website_memory(action, target, text_to_fill=None):
+    """Try verified stored locators first. Any memory error falls back safely."""
+    if _website_memory is None or _page is None or not target:
+        return None
+    host, path = _website_memory_scope()
+    if not host:
+        return None
+    try:
+        records = _website_memory.get_locators(host, path, action, target)
+    except Exception:
+        return None
+    for record in records:
+        try:
+            locator = _locator_from_memory(record)
+            if locator is None or locator.count() != 1 or not locator.is_visible():
+                _website_memory.record_locator_result(record["id"], False)
+                continue
+            if action in {"CLICK_TEXT", "CLICK_HREF"}:
+                previous_url = _page.url
+                locator.click(timeout=CLICK_TIMEOUT)
+                tiny_wait()
+                _refresh_page_map_if_navigated(previous_url)
+                _website_memory.record_locator_result(record["id"], True)
+                print(f"🧠 Website memory hit: {host} · {action} · {target}")
+                return True, f"Clicked saved target: {target}"
+            if action == "TYPE_TEXT":
+                locator.fill(str(text_to_fill or ""), timeout=TYPE_TIMEOUT)
+                _website_memory.record_locator_result(record["id"], True)
+                print(f"🧠 Website memory hit: {host} · input · {target}")
+                return True, f"Typed into saved target: {target}"
+        except Exception:
+            try:
+                _website_memory.record_locator_result(record["id"], False)
+            except Exception:
+                pass
+    return None
+
+
+def _remember_website_locator(action, target, descriptor, scope=None):
+    if _website_memory is None or not descriptor or not target:
+        return
+    try:
+        host, path = scope or _website_memory_scope()
+        if host:
+            _website_memory.save_locator(
+                host, path, action, target,
+                descriptor.get("type", ""), descriptor.get("value", "")
+            )
+    except Exception as error:
+        print(f"⚠️ Could not save website locator: {error}")
+
+
+def _load_safe_task_recipe(command):
+    """Load a learned low-risk navigation workflow for this exact command and start URL."""
+    if _website_memory is None:
+        return None
+    try:
+        recipe = _website_memory.get_workflow(command, page_identity())
+        if not recipe:
+            return None
+        print("🧠 Saved website workflow found — validating steps before replay.")
+        return recipe + [{"action": "DONE", "args": {}}]
+    except Exception as error:
+        print(f"⚠️ Could not load website workflow: {error}")
+        return None
+
+
+def _maybe_save_safe_task_recipe(command, actions, start_url=None, end_url=None):
+    """Persist only verified, low-risk navigation/observation workflows."""
+    if _website_memory is None:
+        return
+    try:
+        saved = _website_memory.save_workflow(command, start_url or "", end_url or page_identity(), actions or [])
+        if saved:
+            print("🧠 Saved verified website workflow for future reuse.")
+    except Exception as error:
+        print(f"⚠️ Could not save website workflow: {error}")
+
+
+# ============================================================
 # PAGE OBSERVATION
 # ============================================================
 
@@ -419,6 +1139,9 @@ def observe_page():
         "links": [],
         "buttons": [],
         "inputs": [],
+        "forms": [],
+        "page_text_full": "",
+        "page_text_file": "",
     }
 
     if _page is None:
@@ -453,6 +1176,7 @@ def observe_page():
                 const links = [];
                 const buttons = [];
                 const inputs = [];
+                const forms = [];
 
                 for (const el of document.querySelectorAll("a")) {
                     if (!visible(el)) continue;
@@ -482,18 +1206,19 @@ def observe_page():
                     if (!visible(el)) continue;
 
                     const text = clean(
-                        el.innerText ||
-                        el.getAttribute("aria-label") ||
-                        el.getAttribute("title")
+                        el.innerText || el.getAttribute("aria-label") ||
+                        el.getAttribute("title") || el.getAttribute("alt")
                     );
-
-                    if (!text) continue;
-
+                    const svg = !!el.querySelector("svg");
+                    const type = clean(el.getAttribute("type"));
+                    // Keep icon-only controls too; their surrounding form and accessibility metadata matter.
                     buttons.push({
                         text: text.slice(0, 120),
-                        aria: clean(
-                            el.getAttribute("aria-label")
-                        ).slice(0, 120)
+                        aria: clean(el.getAttribute("aria-label")).slice(0, 120),
+                        title: clean(el.getAttribute("title")).slice(0, 120),
+                        type: type.slice(0, 40),
+                        has_icon: svg,
+                        form_action: el.form ? clean(el.form.getAttribute("action")).slice(0, 220) : ""
                     });
                 }
 
@@ -503,27 +1228,37 @@ def observe_page():
                     if (!visible(el)) continue;
 
                     inputs.push({
-                        type: (
-                            el.getAttribute("type") ||
-                            el.tagName.toLowerCase()
-                        ),
-                        placeholder: clean(
-                            el.getAttribute("placeholder")
-                        ).slice(0, 100),
-                        aria: clean(
-                            el.getAttribute("aria-label")
-                        ).slice(0, 100),
-                        name: clean(
-                            el.getAttribute("name")
-                        ).slice(0, 80)
+                        type: (el.getAttribute("type") || el.tagName.toLowerCase()),
+                        placeholder: clean(el.getAttribute("placeholder")).slice(0, 100),
+                        aria: clean(el.getAttribute("aria-label")).slice(0, 100),
+                        title: clean(el.getAttribute("title")).slice(0, 100),
+                        name: clean(el.getAttribute("name")).slice(0, 80),
+                        id: clean(el.getAttribute("id")).slice(0, 80),
+                        associated_label: el.labels ? clean([...el.labels].map(x => x.innerText).join(" ")).slice(0, 120) : "",
+                        form_action: el.form ? clean(el.form.getAttribute("action")).slice(0, 220) : ""
                     });
                 }
 
+                for (const form of document.querySelectorAll("form")) {
+                    if (!visible(form)) continue;
+                    forms.push({
+                        action: clean(form.getAttribute("action")).slice(0, 220),
+                        method: clean(form.getAttribute("method") || "get").toLowerCase(),
+                        role: clean(form.getAttribute("role")),
+                        input_count: form.querySelectorAll('input,textarea,select,[contenteditable="true"]').length,
+                        submit_count: form.querySelectorAll('button[type="submit"],input[type="submit"],button:not([type])').length
+                    });
+                }
+
+                const fullText = (document.body && document.body.innerText) || "";
+
                 return {
-                    text: clean(document.body.innerText).slice(0, 1800),
-                    links: links.slice(0, 35),
-                    buttons: buttons.slice(0, 16),
-                    inputs: inputs.slice(0, 10)
+                    text: clean(fullText).slice(0, 1800),
+                    page_text_full: fullText.slice(0, 100000),
+                    links: links.slice(0, 60),
+                    buttons: buttons.slice(0, 40),
+                    inputs: inputs.slice(0, 30),
+                    forms: forms.slice(0, 20)
                 };
             }
             """
@@ -535,6 +1270,14 @@ def observe_page():
     except Exception:
         pass
 
+    # Save a compact structured page map separately from the optional text snapshot.
+    _persist_page_profile(result)
+
+    # Save a text file snapshot of the page content and visible controls.
+    # Keep the shorter `text` field for fast model prompts, while the .txt
+    # snapshot contains a much larger page-text extract.
+    result["page_text_file"] = _save_page_text_snapshot(result)
+    result["page_text_full"] = ""  # Avoid carrying the large copy through every planner call.
     return result
 
 
@@ -787,7 +1530,7 @@ def open_first_organic_result():
     try:
         candidate = _page.evaluate(r"""
         () => {
-            const clean = s => (s || "").replace(/\\s+/g, " ").trim();
+            const clean = s => (s || "").replace(/\s+/g, " ").trim();
 
             const unwrapGoogleUrl = href => {
                 if (!href) return "";
@@ -801,7 +1544,7 @@ def open_first_organic_result():
                         const q = u.searchParams.get("q") ||
                                   u.searchParams.get("url") ||
                                   u.searchParams.get("u");
-                        if (q && /^https?:\\/\\//i.test(q)) return q;
+                        if (q && /^https?:\/\//i.test(q)) return q;
                     }
                     return u.href;
                 } catch (_) {
@@ -1050,29 +1793,44 @@ def open_first_video():
 def open_url(url):
     global _page
 
-    if _page is None:
-        return False, "Browser unavailable."
-
     url = str(url).strip()
-
     if not url:
         return False, "No URL provided."
 
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
-    try:
-        _page.goto(
-            url,
-            wait_until="commit",
-            timeout=NAV_TIMEOUT,
-        )
-        tiny_wait()
-        update_active_site(url)
-        return True, f"Opened {url}"
+    ready, error = _ensure_browser_ready()
+    if not ready:
+        return False, error
 
-    except Exception as e:
-        return False, f"Navigation failed: {e}"
+    # A page can close between the health check and goto(). If that happens,
+    # rebuild the browser once and retry the navigation exactly once.
+    for attempt in range(2):
+        try:
+            _page.goto(
+                url,
+                wait_until="commit",
+                timeout=NAV_TIMEOUT,
+            )
+            tiny_wait()
+            update_active_site(url)
+            try:
+                observe_page()
+            except Exception:
+                pass
+            return True, f"Opened {url}"
+        except Exception as e:
+            if attempt == 0 and _is_closed_browser_error(e):
+                print("⚠️ Navigation lost its browser tab. Reopening Brave and retrying once…")
+                close_browser()
+                ready, recovery_error = _ensure_browser_ready()
+                if ready:
+                    continue
+                return False, f"Navigation failed: {recovery_error} Original error: {e}"
+            return False, f"Navigation failed: {e}"
+
+    return False, "Navigation failed after browser recovery."
 
 
 def go_back():
@@ -1125,10 +1883,17 @@ def click_text(text):
     if _page is None:
         return False, "Browser unavailable."
 
-    text = str(text).strip()
+    original_text = str(text).strip()
+    text = _normalize_click_target(original_text)
 
     if not text:
         return False, "No target text."
+
+    scope_before = _website_memory_scope()
+    descriptor = _describe_target_locator("CLICK_TEXT", text)
+    remembered = _try_website_memory("CLICK_TEXT", text)
+    if remembered is not None:
+        return remembered
 
     strategies = [
         lambda: _page.get_by_role(
@@ -1156,8 +1921,10 @@ def click_text(text):
 
     for i, strategy in enumerate(strategies):
         try:
+            previous_url = _page.url
             strategy()
             tiny_wait()
+            _refresh_page_map_if_navigated(previous_url)
 
             kind = (
                 "link"
@@ -1167,11 +1934,20 @@ def click_text(text):
                 else "text"
             )
 
+            _remember_website_locator("CLICK_TEXT", text, descriptor, scope_before)
             return True, f"Clicked {kind}: {text}"
         except Exception:
             pass
 
-    return False, f"Could not find clickable target: {text}"
+    # Natural-language targets may describe a destination rather than its exact label:
+    # e.g. "English Wikipedia" should match the visible link named "English".
+    semantic_ok, semantic_message = _semantic_click_visible_target(text)
+    if semantic_ok:
+        descriptor_after = _describe_target_locator("CLICK_TEXT", text)
+        _remember_website_locator("CLICK_TEXT", text, descriptor_after, _website_memory_scope())
+        return True, semantic_message
+
+    return False, f"Could not find clickable target: {text}. {semantic_message}"
 
 
 def click_href(href):
@@ -1183,14 +1959,23 @@ def click_href(href):
     if not href:
         return False, "No href."
 
+    scope_before = _website_memory_scope()
+    descriptor = _describe_target_locator("CLICK_HREF", href)
+    remembered = _try_website_memory("CLICK_HREF", href)
+    if remembered is not None:
+        return remembered
+
     try:
         locator = _page.locator(
             f'a[href="{href}"]'
         ).first
 
+        previous_url = _page.url
         locator.click(timeout=CLICK_TIMEOUT)
         tiny_wait()
+        _refresh_page_map_if_navigated(previous_url)
 
+        _remember_website_locator("CLICK_HREF", href, descriptor, scope_before)
         return True, f"Clicked link: {href}"
 
     except Exception:
@@ -1203,6 +1988,7 @@ def click_href(href):
         ).first
         locator.click(timeout=CLICK_TIMEOUT)
         tiny_wait()
+        _remember_website_locator("CLICK_HREF", href, descriptor, scope_before)
         return True, f"Clicked link: {href}"
     except Exception:
         pass
@@ -1218,6 +2004,11 @@ def type_text(text, target=None):
 
     if target:
         target = str(target).strip()
+        scope_before = _website_memory_scope()
+        descriptor = _describe_target_locator("TYPE_TEXT", target)
+        remembered = _try_website_memory("TYPE_TEXT", target, text)
+        if remembered is not None:
+            return remembered
 
         try:
             _page.get_by_placeholder(
@@ -1227,6 +2018,7 @@ def type_text(text, target=None):
                 text,
                 timeout=TYPE_TIMEOUT,
             )
+            _remember_website_locator("TYPE_TEXT", target, descriptor, scope_before)
             return True, f"Typed into {target}"
         except Exception:
             pass
@@ -1239,6 +2031,7 @@ def type_text(text, target=None):
                 text,
                 timeout=TYPE_TIMEOUT,
             )
+            _remember_website_locator("TYPE_TEXT", target, descriptor, scope_before)
             return True, f"Typed into {target}"
         except Exception:
             pass
@@ -1335,11 +2128,17 @@ def target_visible(action, args):
                             el.getAttribute("title") ||
                             el.getAttribute("alt")
                         );
+                        const href = norm(el.getAttribute("href") || el.href || "");
+                        if (text === wanted || text.includes(wanted) || wanted.includes(text) && text.length >= 3) return true;
 
-                        if (
-                            text === wanted ||
-                            text.includes(wanted)
-                        ) return true;
+                        // Semantic validation: "English Wikipedia" can refer to a
+                        // visible control labelled simply "English". This is only a
+                        // presence check; click_text still selects the unique best match.
+                        const ignored = new Set(["open","go","to","visit","click","tap","press","on","the","a","an","page","website","site","please","wikipedia","edition","button","link","tab","option","menu","item","control","icon","language"]);
+                        const tokens = wanted.split(/\\s+/).filter(t => t && !ignored.has(t));
+                        const matched = tokens.filter(t => text.includes(t) || href.includes(t)).length;
+                        if (tokens.length && matched === tokens.length) return true;
+                        if (tokens.includes("english") && /(^|\\.)en\\.wikipedia\\.org/.test(href)) return true;
                     }
 
                     return false;
@@ -1430,6 +2229,9 @@ OPEN_URL
 
 SEARCH_WEB
 {"query":"latest AI news"}
+
+SEARCH_CURRENT_PAGE
+{"query":"artificial intelligence"}
 
 SEARCH_YOUTUBE
 {"query":"MrBeast"}
@@ -1526,6 +2328,8 @@ Examples:
 - If the user explicitly asks to search YouTube, use SEARCH_YOUTUBE.
 - A generic "search for X" means SEARCH_YOUTUBE when ACTIVE SITE is youtube.
 - A generic "search for X" means SEARCH_WEB only when ACTIVE SITE is google.
+- On other sites, prefer SEARCH_CURRENT_PAGE; it identifies the site's search field/form and can use Enter or an icon-only submit control.
+- Match natural-language targets semantically when a visible control's label is a shorter form of the requested destination (e.g. "English Wikipedia" can match a unique link labelled "English"). Verify the destination after clicking.
 - Do NOT turn generic "search for X" into Google just because "search" is present.
 - Do NOT search Google to discover a website URL. Website destinations are resolved by NOVA/Qwen before planning.
 - If the user asks to open/click a named section, tab, menu, or page, first check whether that target is visibly present on the CURRENT PAGE. If it is visible, click it. If it is not visible, use current page + conversation context to decide what to do; do not invent a destination.
@@ -1534,9 +2338,18 @@ Examples:
 - Do not use SEARCH_WEB merely because you are confused about a follow-up
   that can be solved from the current page.
 
+TASK DECOMPOSITION (IMPORTANT):
+- For a request with multiple goals, a publisher + section + article, or an implied sequence, decompose the FULL request once before acting.
+- Think in logical phases, then convert those phases into executable browser actions in the correct order.
+- Execute prerequisites first. For a publisher/section/article request, the order is: open the publisher, navigate to the requested section, then locate and open the matching article.
+- Do not search Google first when the user asked to navigate inside a specific publisher's website.
+- Use the supplied SITE-SCOPED REQUEST HINT, if present, as grounding for the site, section, and article subject. Do not replace it with a generic web search.
+- Return one ordered action list for the whole task. The executor will run it sequentially; do not plan later clicks against controls that only appear after navigation unless the action is explicitly a later step.
+- Keep the plan lean and fast: one Qwen planning call for the whole task, not one call per step. Replanning is only for a failed or unavailable step.
+
 FAST RULES:
 - Make the shortest realistic plan.
-- Usually make 1-4 actions.
+- Usually make 1-6 actions for multi-stage tasks and 1-4 for simple tasks.
 - Do not call Qwen after every action.
 - Do not repeat an action that already succeeded.
 - Navigation can invalidate old targets; if that happens, replan from the
@@ -1577,9 +2390,49 @@ OPEN_FIRST_ORGANIC_RESULT -> DONE
 def create_plan(command):
     observation = observe_page()
 
+    # Structured grounding for Qwen: resolve the requested publisher/section
+    # locally, but let Qwen produce the ordered multi-step action plan.
+    scoped_hint = None
+    if _website_directory is not None:
+        try:
+            scoped_hint = _website_directory.resolve_site_scoped_request(command)
+        except Exception:
+            scoped_hint = None
+
+    page_memory = {}
+    if _website_memory is not None and observation.get("url"):
+        try:
+            from urllib.parse import urlsplit
+            parsed = urlsplit(observation["url"])
+            host = (parsed.hostname or "").lower().removeprefix("www.")
+            path = parsed.path or "/"
+            if path != "/":
+                path = path.rstrip("/") or "/"
+            profiles = _website_memory.get_page_profiles(host, path, limit=1)
+            if profiles:
+                profile = profiles[0]
+                controls = profile.get("controls", {})
+                page_memory = {
+                    "page_title": profile.get("page_title", ""),
+                    "purpose": profile.get("purpose", ""),
+                    "visit_count": profile.get("visit_count", 1),
+                    "fingerprint": profile.get("fingerprint", ""),
+                    "last_verified": profile.get("last_verified"),
+                    "known_search_fields": [x for x in controls.get("inputs", []) if isinstance(x, dict) and any(k in str(x).lower() for k in ("search", "query", "keyword"))][:5],
+                    "known_links": controls.get("links", [])[:12],
+                    "known_buttons": controls.get("buttons", [])[:10],
+                }
+        except Exception:
+            page_memory = {}
+
     prompt = f"""
 ORIGINAL USER REQUEST:
 {command}
+
+SITE-SCOPED REQUEST HINT (resolved from NOVA's local website directory; null if not applicable):
+{json.dumps(scoped_hint, ensure_ascii=False, separators=(",", ":")) if scoped_hint else "null"}
+
+If the hint is present, preserve the requested site and section. For an article request, plan the ordered journey: open the site's home page first, click/navigate to the requested section second, then find and open the article matching the subject. Use CLICK_TEXT for a visible section link; after navigating, use the current site's search field if needed, then open the matching article result. Do not open Google search results as the final destination.
 
 RECENT CONVERSATION:
 {history_for_qwen()}
@@ -1599,6 +2452,15 @@ BUTTONS:
 
 INPUTS:
 {json.dumps(observation["inputs"], ensure_ascii=False, separators=(",", ":"))}
+
+PREVIOUSLY LEARNED PAGE MAP (validate against the current page; stale details are hints only):
+{json.dumps(page_memory, ensure_ascii=False, separators=(",", ":"))}
+
+PERSISTENT TASK MEMORY (reference only; never assume the current task is already done):
+{memory_for_qwen()}
+
+PAGE TEXT SNAPSHOT FILE:
+{observation.get("page_text_file", "")}
 
 Decide what the user means in this context.
 Choose the shortest plan that actually accomplishes the ORIGINAL request.
@@ -1624,6 +2486,7 @@ Return ONLY:
     allowed = {
         "OPEN_URL",
         "SEARCH_WEB",
+        "SEARCH_CURRENT_PAGE",
         "SEARCH_YOUTUBE",
         "OPEN_FIRST_ORGANIC_RESULT",
         "OPEN_FIRST_VIDEO",
@@ -1661,6 +2524,38 @@ Return ONLY:
                 "action": action,
                 "args": args,
             })
+
+    # For known publisher + section + article requests, validate the order
+    # of Qwen's decomposition. The AI still chooses the article-finding actions,
+    # but prerequisites are guaranteed to run first.
+    if scoped_hint and scoped_hint.get("section"):
+        ordered = [
+            {"action": "OPEN_URL", "args": {"url": scoped_hint["site_url"]}},
+            {"action": "CLICK_TEXT", "args": {"text": scoped_hint["section"]}},
+        ]
+        remaining = []
+        for item in clean:
+            action = item["action"]
+            args = item["args"]
+            if action == "OPEN_URL":
+                continue
+            # Avoid a generic Google detour for a publisher-scoped task.
+            if action == "SEARCH_WEB":
+                continue
+            if action == "CLICK_TEXT" and str(args.get("text", "")).strip().lower() == str(scoped_hint["section"]).lower():
+                continue
+            if action == "DONE":
+                continue
+            remaining.append(item)
+        if not remaining:
+            remaining = [
+                {"action": "SEARCH_CURRENT_PAGE", "args": {"query": scoped_hint.get("subject", "")}},
+                {"action": "OPEN_FIRST_ORGANIC_RESULT", "args": {}},
+            ]
+        ordered.extend(remaining)
+        ordered.append({"action": "DONE", "args": {}})
+        clean = ordered[:MAX_ACTIONS]
+        print("🧠 Qwen plan ordered into phases: 1) open publisher  2) enter section  3) find/open article")
 
     return clean
 
@@ -1722,11 +2617,19 @@ def execute_action(action, args):
     action = str(action).upper().strip()
     args = args if isinstance(args, dict) else {}
 
+    if action not in {"DONE", "ANSWER"}:
+        ready, error = _ensure_browser_ready()
+        if not ready:
+            return False, error
+
     if action == "OPEN_URL":
         return open_url(args.get("url", ""))
 
     if action == "SEARCH_WEB":
         return search_web(args.get("query", ""))
+
+    if action == "SEARCH_CURRENT_PAGE":
+        return search_current_page(args.get("query", ""))
 
     if action == "SEARCH_YOUTUBE":
         return search_youtube(args.get("query", ""))
@@ -1832,6 +2735,16 @@ def visible_target_text(target):
         return False
 
 
+def _normalize_click_target(raw_target):
+    """Remove conversational wrappers and element-type words from click targets."""
+    target = re.sub(r"\s+", " ", str(raw_target or "")).strip()
+    target = re.sub(r"^(?:please\s+)?(?:click|press|tap)\s+(?:on\s+)?", "", target, flags=re.IGNORECASE)
+    target = re.sub(r"^(?:the|a|an)\s+", "", target, flags=re.IGNORECASE)
+    # These words describe the control type, not its label.
+    target = re.sub(r"\s+(?:button|link|tab|option|menu item|menu|control|icon|language link|language button)$", "", target, flags=re.IGNORECASE)
+    return target.strip(" \"'`.,!? ")
+
+
 def fast_command(command):
     """Handle common browser actions without spending a Qwen call."""
     text = str(command).strip()
@@ -1894,11 +2807,14 @@ def fast_command(command):
             {"action": "DONE", "args": {}},
         ]
 
-    # Exact visible clicks: safe and much faster than asking Qwen to plan.
-    m = re.match(r"^(?:click|press)\s+(.+)$", lower)
+    # Natural-language click commands are resolved against the live page first.
+    # Examples: "click on the English button", "tap English", "press Search".
+    m = re.match(r"^(?:click|press|tap)\s+(?:on\s+)?(.+)$", text, flags=re.IGNORECASE)
     if m:
-        target = text.split(None, 1)[1].strip()
-        if target and visible_target_text(target):
+        target = _normalize_click_target(m.group(1))
+        if target:
+            # Let click_text perform the actual match/click exactly once. The fast
+            # parser must never trigger a semantic click as a side effect.
             return [
                 {"action": "CLICK_TEXT", "args": {"text": target}},
                 {"action": "DONE", "args": {}},
@@ -1920,6 +2836,36 @@ def obvious_command(command):
     """
     text = str(command).strip()
     lower = text.lower()
+
+    # ------------------------------------------------------------
+    # 0. Site- and section-scoped article/content requests.
+    # Example: "Open Google Sundar Pichai article in Times of India inside tech section".
+    # Search the requested publisher/section, then OPEN the first organic result;
+    # do not treat the whole sentence as a Google query and stop on the results page.
+    # ------------------------------------------------------------
+    if _website_directory is not None:
+        try:
+            scoped_request = _website_directory.resolve_site_scoped_request(text)
+        except Exception as _scoped_error:
+            scoped_request = None
+            print(f"⚠️ Site-scoped request parser failed: {_scoped_error}")
+        if scoped_request:
+            section_desc = f" / {scoped_request['section']} section" if scoped_request.get("section") else ""
+            print(
+                f"🎯 Site-scoped task: {scoped_request['site_name']}{section_desc}; "
+                "ordered fallback: open publisher -> enter section -> find article"
+            )
+            fallback = [
+                {"action": "OPEN_URL", "args": {"url": scoped_request["site_url"]}},
+            ]
+            if scoped_request.get("section"):
+                fallback.append({"action": "CLICK_TEXT", "args": {"text": scoped_request["section"]}})
+            fallback.extend([
+                {"action": "SEARCH_CURRENT_PAGE", "args": {"query": scoped_request.get("subject", "")}},
+                {"action": "OPEN_FIRST_ORGANIC_RESULT", "args": {}},
+                {"action": "DONE", "args": {}},
+            ])
+            return fallback
 
     # ------------------------------------------------------------
     # 1. Explicit URL.
@@ -1997,6 +2943,54 @@ def obvious_command(command):
             )
             cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
+            # Resolve known websites locally BEFORE calling Qwen. The supplied directory
+            # is already keyed from URL hostnames, so common destinations need no model call.
+            # Do this before on-page matching so "open YouTube" means navigate to YouTube,
+            # even if the current page happens to contain a YouTube link.
+            directory_match = None
+            if _website_directory is not None:
+                try:
+                    directory_match = _website_directory.resolve_website(cleaned)
+                except Exception as _directory_error:
+                    print(f"⚠️ Website directory lookup failed: {_directory_error}")
+
+            if directory_match and directory_match.get("url"):
+                resolved_url = str(directory_match["url"])
+                display_name = str(directory_match.get("name") or cleaned)
+                matched_by = str(directory_match.get("matched_by") or "local directory")
+                print(f"📚 Local website directory hit: {display_name} → {resolved_url} ({matched_by}; no Qwen URL lookup)")
+                return [
+                    {"action": "OPEN_URL", "args": {"url": resolved_url}},
+                    {"action": "DONE", "args": {}},
+                ]
+
+            # If the requested destination is represented by a visible control on the
+            # current page, use it when the phrase is a sub-page/edition, e.g.
+            # "open English Wikipedia" while on wikipedia.org should click "English".
+            on_page_label = re.sub(r"\b(wikipedia|website|site|page|edition|homepage|home page)\b", " ", cleaned, flags=re.IGNORECASE)
+            on_page_label = re.sub(r"\s+", " ", on_page_label).strip()
+            if on_page_label and visible_target_text(on_page_label):
+                return [
+                    {"action": "CLICK_TEXT", "args": {"text": on_page_label}},
+                    {"action": "DONE", "args": {}},
+                ]
+
+            # A plain domain such as "open example.org" is already a destination;
+            # don't waste a Qwen call trying to discover its URL.
+            if _website_directory is not None:
+                try:
+                    if _website_directory.is_domain_like(cleaned):
+                        explicit_domain = cleaned.strip()
+                        if not explicit_domain.lower().startswith(("http://", "https://")):
+                            explicit_domain = "https://" + explicit_domain
+                        print(f"🌐 Direct domain supplied by user: {explicit_domain}")
+                        return [
+                            {"action": "OPEN_URL", "args": {"url": explicit_domain}},
+                            {"action": "DONE", "args": {}},
+                        ]
+                except Exception:
+                    pass
+
             normalized = normalize_site_name(cleaned)
 
             if normalized in SITE_URLS:
@@ -2051,9 +3045,12 @@ def obvious_command(command):
                 {"action": "DONE", "args": {}},
             ]
 
-        # For another known active website, let Qwen use the current
-        # page and choose the correct site's search UI.
-        return None
+        # Search the current site by inspecting its live fields and form controls.
+        # If no suitable field exists, normal failure handling can replan via Qwen.
+        return [
+            {"action": "SEARCH_CURRENT_PAGE", "args": {"query": query}},
+            {"action": "DONE", "args": {}},
+        ]
 
     # ------------------------------------------------------------
     # 6. Visible section/tab/menu.
@@ -2110,6 +3107,12 @@ LINKS:
 BUTTONS:
 {json.dumps(observation["buttons"], ensure_ascii=False, separators=(",", ":"))}
 
+PAGE TEXT SNAPSHOT FILE:
+{observation.get("page_text_file", "")}
+
+PERSISTENT TASK MEMORY:
+{memory_for_qwen()}
+
 The previous action failed or became invalid.
 Think about what the USER MEANS in the CURRENT CONTEXT.
 Continue toward the SAME original goal.
@@ -2140,6 +3143,7 @@ Return ONLY JSON:
     allowed = {
         "OPEN_URL",
         "SEARCH_WEB",
+        "SEARCH_CURRENT_PAGE",
         "SEARCH_YOUTUBE",
         "OPEN_FIRST_ORGANIC_RESULT",
         "OPEN_FIRST_VIDEO",
@@ -2202,6 +3206,25 @@ def print_plan(plan, title="📋 PLAN"):
 # MAIN TASK ENGINE
 # ============================================================
 
+def _needs_ai_decomposition(command):
+    """True for multi-stage requests that should be planned by Qwen once."""
+    text = re.sub(r"\s+", " ", str(command or "").strip().lower())
+    if not text:
+        return False
+    if _website_directory is not None:
+        try:
+            if _website_directory.resolve_site_scoped_request(command):
+                return True
+        except Exception:
+            pass
+    # Multiple explicit actions, or a destination + section/content target,
+    # need ordering; simple one-step commands should stay on the fast path.
+    action_words = re.findall(r"\b(open|go to|visit|click|search|find|read|scroll|type|press)\b", text)
+    has_section = bool(re.search(r"\b(section|category|tab|menu)\b", text))
+    has_content_target = bool(re.search(r"\b(article|story|video|page|post|result)\b", text))
+    return len(action_words) >= 2 or (has_section and has_content_target)
+
+
 def run_task(command):
     global CURRENT_COMMAND
 
@@ -2231,18 +3254,32 @@ def run_task(command):
     if not start_browser():
         return
 
+    task_start_url = page_identity()
+    successful_actions = []
+    task_status = "failed"
+    task_result = ""
+
     # --------------------------------------------------------
     # Fast path for truly unambiguous commands.
     # Generic "open X" deliberately goes to Qwen because X may
     # be a destination OR a contextual instruction.
     # --------------------------------------------------------
 
-    plan = fast_command(CURRENT_COMMAND)
+    plan = _load_safe_task_recipe(CURRENT_COMMAND)
+    if not plan:
+        plan = fast_command(CURRENT_COMMAND)
+
+    # Complex prompts go through one Qwen decomposition pass before any
+    # navigation. Simple commands retain the deterministic zero-Qwen path.
+    if not plan and _needs_ai_decomposition(CURRENT_COMMAND):
+        print("🧠 Qwen breaking the request into ordered steps...")
+        plan = create_plan(CURRENT_COMMAND)
+
     if not plan:
         plan = obvious_command(CURRENT_COMMAND)
 
     if plan:
-        print("⚡ Direct action")
+        print("⚡ Direct action / saved workflow" if not _needs_ai_decomposition(CURRENT_COMMAND) else "🧠 Ordered task plan ready")
     else:
         print("👀 Observing page...")
         print("🧠 Qwen understanding context...")
@@ -2251,6 +3288,7 @@ def run_task(command):
     if not plan:
         print("❌ No usable plan.")
         add_history(CURRENT_COMMAND, "No usable plan.")
+        _remember_completed_task(CURRENT_COMMAND, "No usable plan.", "failed", task_start_url, page_identity(), [])
         return
 
     print_plan(plan)
@@ -2399,7 +3437,11 @@ def run_task(command):
 
         if ok:
             print("   ✅", result)
+            if action not in {"DONE", "ANSWER"}:
+                successful_actions.append({"action": action, "args": args})
+            task_result = str(result)
         else:
+            task_result = str(result)
             print("   ❌", result)
 
             # Infrastructure/thread failures cannot be repaired by choosing
@@ -2412,7 +3454,11 @@ def run_task(command):
                 "target page, context or browser has been closed",
             ))
             if infrastructure_error:
-                print("🛑 Browser infrastructure failure — stopping task.")
+                # We already attempted automatic recovery before each action and
+                # OPEN_URL retries once. If the failure persists, stop clearly
+                # rather than letting the model loop on a dead Playwright page.
+                print("🛑 Browser infrastructure failure — automatic recovery did not resolve it.")
+                print("❌ Task stopped. Check Brave/Playwright and try the command again.")
                 add_history(CURRENT_COMMAND, result)
                 return
 
@@ -2466,6 +3512,9 @@ def run_task(command):
                 CURRENT_COMMAND,
                 result,
             )
+            task_status = "done"
+            task_result = str(result)
+            _remember_completed_task(CURRENT_COMMAND, task_result, task_status, task_start_url, page_identity(), successful_actions)
 
             break
 
@@ -2477,6 +3526,10 @@ def run_task(command):
                 CURRENT_COMMAND,
                 result,
             )
+            task_status = "done"
+            task_result = str(result)
+            _maybe_save_safe_task_recipe(CURRENT_COMMAND, successful_actions, task_start_url, page_identity())
+            _remember_completed_task(CURRENT_COMMAND, task_result, task_status, task_start_url, page_identity(), successful_actions)
 
             break
 
@@ -2577,6 +3630,13 @@ def run_task(command):
     elapsed = time.time() - start_time
 
     print()
+    if task_status != "done":
+        if stop_event.is_set() or exit_event.is_set():
+            task_status = "stopped"
+        if not task_result:
+            task_result = "Task ended without an explicit DONE/ANSWER action."
+        _remember_completed_task(CURRENT_COMMAND, task_result, task_status, task_start_url, page_identity(), successful_actions)
+
     print(f"⏱️ Time: {elapsed:.1f}s")
     print("=" * 64)
     print()

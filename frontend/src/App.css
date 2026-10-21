@@ -4037,3 +4037,609 @@ html, body, #root {
     border-radius: 19px !important;
   }
 }
+
+
+/* ================================================= */
+/* VOICE INPUT */
+/* ================================================= */
+.microphone.voice-listening {
+  color: #ffffff;
+  background: #58776c;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(88, 119, 108, .16);
+  animation: nova-voice-pulse 1.4s ease-in-out infinite;
+}
+
+.app.dark-mode .microphone.voice-listening {
+  color: #ffffff;
+  background: #668579;
+  box-shadow: 0 0 0 5px rgba(145, 174, 161, .18);
+}
+
+@keyframes nova-voice-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* ChatGPT-style live voice indicator */
+.microphone.voice-listening {
+  gap: 3px;
+  min-width: 46px;
+}
+
+.voice-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 24px;
+  height: 26px;
+}
+
+.voice-wave i {
+  display: block;
+  width: 3px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+  animation: nova-voice-wave 850ms ease-in-out infinite;
+}
+
+.voice-wave i:nth-child(2),
+.voice-wave i:nth-child(4) {
+  animation-delay: 140ms;
+  animation-duration: 720ms;
+}
+
+.voice-wave i:nth-child(3) {
+  animation-delay: 260ms;
+  animation-duration: 620ms;
+}
+
+.voice-wave i:nth-child(5) {
+  animation-delay: 90ms;
+  animation-duration: 780ms;
+}
+
+@keyframes nova-voice-wave {
+  0%, 100% { height: 5px; }
+  50% { height: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .microphone.voice-listening,
+  .voice-wave i {
+    animation: none;
+  }
+  .voice-wave i:nth-child(odd) { height: 12px; }
+  .voice-wave i:nth-child(even) { height: 7px; }
+}
+
+
+/* Ensure the Chat composer microphone remains clickable above composer layers. */
+.chat-workspace .chat-task-box .microphone {
+  position: relative !important;
+  z-index: 2 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.chat-workspace .chat-task-box .microphone.voice-listening {
+  color: #ffffff !important;
+  background: #58776c !important;
+  box-shadow: 0 0 0 5px rgba(88, 119, 108, .16) !important;
+}
+
+.chat-workspace .chat-task-box .voice-wave {
+  pointer-events: none;
+}
+
+/* ================================================================
+   NOVA CHAT INTERFACE UPDATE
+   - Use the full workspace between the sidebar and the right edge.
+   - Keep the composer wide and visually anchored to the chat viewport.
+   - Put task progress below the composer in a collapsible panel.
+   ================================================================ */
+.chat-page.section-page {
+  box-sizing: border-box !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100vh !important;
+  min-height: 0 !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-page .chat-page-header {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  min-height: 78px !important;
+  margin: 0 !important;
+  padding: 19px clamp(20px, 2.7vw, 42px) 14px !important;
+  align-items: center !important;
+}
+
+.chat-page > .chat-workspace {
+  box-sizing: border-box !important;
+  position: relative !important;
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.chat-workspace .conversation-messages {
+  box-sizing: border-box !important;
+  width: calc(100% - 64px) !important;
+  max-width: none !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  margin: 0 auto !important;
+  padding: 28px 4px 24px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-gutter: stable !important;
+}
+
+.chat-workspace .conversation-message.user {
+  max-width: min(78%, 860px) !important;
+}
+
+.chat-workspace .conversation-message.nova {
+  max-width: 100% !important;
+}
+
+.chat-workspace .conversation-message.user .conversation-role {
+  display: none !important;
+}
+
+.chat-workspace .chat-task-box {
+  box-sizing: border-box !important;
+  width: calc(100% - 64px) !important;
+  max-width: none !important;
+  min-height: 64px !important;
+  flex: 0 0 auto !important;
+  margin: 0 auto 8px !important;
+  padding: 8px 9px 8px 19px !important;
+}
+
+/* Collapsible task-progress/status strip directly below the message composer. */
+.chat-workspace .nova-live-activity {
+  box-sizing: border-box !important;
+  width: calc(100% - 64px) !important;
+  max-width: none !important;
+  flex: 0 0 auto !important;
+  margin: 0 auto 14px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(39, 48, 51, .10) !important;
+  border-radius: 15px !important;
+  background: rgba(255, 255, 255, .72) !important;
+  box-shadow: 0 5px 16px rgba(39, 48, 51, .045) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+.chat-workspace .activity-toggle {
+  appearance: none !important;
+  width: 100% !important;
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  padding: 9px 15px !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  background: transparent !important;
+  color: #33403b !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+
+.chat-workspace .activity-toggle:hover {
+  background: rgba(142, 169, 157, .10) !important;
+}
+
+.chat-workspace .activity-toggle-copy {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 12px !important;
+}
+
+.chat-workspace .activity-toggle-title {
+  flex: 0 0 auto !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: .13em !important;
+  white-space: nowrap !important;
+}
+
+.chat-workspace .activity-toggle-status {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #68766f !important;
+  font-size: 11px !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.chat-workspace .activity-chevron {
+  flex: 0 0 auto !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 25px !important;
+  height: 25px !important;
+  border-radius: 8px !important;
+  color: #5f7569 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  transform: rotate(0deg) !important;
+  transition: transform .18s ease, background .18s ease !important;
+}
+
+.chat-workspace .activity-chevron.open {
+  transform: rotate(180deg) !important;
+}
+
+.chat-workspace .activity-details {
+  max-height: min(190px, 28vh) !important;
+  overflow: auto !important;
+  padding: 0 15px 13px !important;
+  border-top: 1px solid rgba(39, 48, 51, .07) !important;
+}
+
+.chat-workspace .activity-current-status {
+  margin: 10px 0 8px !important;
+  color: #485a50 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.chat-workspace .activity-event-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding-top: 10px !important;
+}
+
+.chat-workspace .activity-event {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 9px !important;
+  color: #48524d !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.chat-workspace .activity-event-icon {
+  flex: 0 0 19px !important;
+  width: 19px !important;
+  text-align: center !important;
+}
+
+.chat-workspace .activity-empty {
+  margin: 10px 0 0 !important;
+  color: #718078 !important;
+  font-size: 12px !important;
+}
+
+.app.dark-mode .chat-workspace .nova-live-activity {
+  border-color: rgba(255, 255, 255, .10) !important;
+  background: rgba(31, 35, 33, .78) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .16) !important;
+}
+
+.app.dark-mode .chat-workspace .activity-toggle {
+  color: #e7eee9 !important;
+}
+
+.app.dark-mode .chat-workspace .activity-toggle-status,
+.app.dark-mode .chat-workspace .activity-current-status,
+.app.dark-mode .chat-workspace .activity-event,
+.app.dark-mode .chat-workspace .activity-empty {
+  color: #becbc3 !important;
+}
+
+.app.dark-mode .chat-workspace .activity-details {
+  border-top-color: rgba(255, 255, 255, .08) !important;
+}
+
+@media (max-width: 720px) {
+  .chat-page .chat-page-header {
+    min-height: 68px !important;
+    padding: 14px 12px 10px !important;
+  }
+
+  .chat-page-header h1 {
+    max-width: 55vw !important;
+    font-size: 21px !important;
+  }
+
+  .chat-workspace .conversation-messages,
+  .chat-workspace .chat-task-box,
+  .chat-workspace .nova-live-activity {
+    width: calc(100% - 24px) !important;
+  }
+
+  .chat-workspace .conversation-messages {
+    padding: 20px 2px 18px !important;
+  }
+
+  .chat-workspace .chat-task-box {
+    margin-bottom: 7px !important;
+    border-radius: 19px !important;
+  }
+
+  .chat-workspace .activity-toggle-copy {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  .chat-workspace .activity-toggle-status {
+    max-width: 70vw !important;
+  }
+
+  .chat-workspace .activity-details {
+    max-height: 24vh !important;
+  }
+}
+
+
+/* ================================================================
+   CHAT WIDTH CORRECTION v1.1
+   The previous version still retained 32px side gutters through
+   width: calc(100% - 64px). These final rules intentionally override
+   every earlier desktop/mobile width rule so the chat workspace reaches
+   the full available width from the sidebar edge to the right edge.
+   Content keeps its own internal padding instead of an outer narrow box.
+   ================================================================ */
+.chat-page.section-page,
+.chat-page.section-page > .chat-workspace {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.chat-page.section-page > .chat-workspace .conversation-messages,
+.chat-page.section-page > .chat-workspace .conversation-empty,
+.chat-page.section-page > .chat-workspace .chat-task-box,
+.chat-page.section-page > .chat-workspace .nova-live-activity {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.chat-page.section-page > .chat-workspace .conversation-messages {
+  padding-left: clamp(16px, 2.4vw, 38px) !important;
+  padding-right: clamp(16px, 2.4vw, 38px) !important;
+}
+
+.chat-page.section-page > .chat-workspace .conversation-empty {
+  padding-left: clamp(16px, 2.4vw, 38px) !important;
+  padding-right: clamp(16px, 2.4vw, 38px) !important;
+}
+
+.chat-page.section-page > .chat-workspace .chat-task-box {
+  margin-bottom: 8px !important;
+  border-radius: 0 !important;
+  padding-left: clamp(16px, 2.4vw, 38px) !important;
+  padding-right: clamp(16px, 2.4vw, 38px) !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity {
+  margin-bottom: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-radius: 0 !important;
+}
+
+
+/* TASK PROGRESS COMPACT FIX v1.2
+   In collapsed state, the status should be a small strip rather than a full-width panel.
+   It expands to the full available width only when the user opens the details. */
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+  width: fit-content !important;
+  max-width: min(520px, 100%) !important;
+  align-self: flex-start !important;
+  flex: 0 1 auto !important;
+  margin: 0 0 12px 0 !important;
+  border: 1px solid rgba(39, 48, 51, .10) !important;
+  border-radius: 13px !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed .activity-toggle {
+  min-height: 34px !important;
+  padding: 5px 10px !important;
+  gap: 10px !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed .activity-toggle-copy {
+  gap: 8px !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+@media (max-width: 720px) {
+  .chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+    width: fit-content !important;
+    max-width: 100% !important;
+  }
+}
+
+
+/* ================================================================
+   NOVA CHAT UI v1.4 — SOURCE-LEVEL FINAL OVERRIDES
+   These rules are deliberately last in the stylesheet.
+   ================================================================ */
+
+/* Never show a speaker label or pseudo-label on the user's own message. */
+.chat-page .conversation-message.user .conversation-role,
+.chat-page .conversation-message.user .message-role,
+.chat-page .conversation-message.user [data-role="user"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+.chat-page .conversation-message.user::before,
+.chat-page .conversation-message.user::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Keep the workspace flush to the available area to the right of the sidebar. */
+.chat-page.section-page {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.chat-page.section-page > .chat-workspace {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.chat-page.section-page > .chat-workspace .conversation-messages,
+.chat-page.section-page > .chat-workspace .conversation-empty,
+.chat-page.section-page > .chat-workspace .chat-task-box {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* The progress panel has a compact collapsed state and a full-width expanded
+   state. React state is user-owned and is not reset on task completion,
+   navigation, or creating another chat. */
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+  width: fit-content !important;
+  max-width: min(520px, 100%) !important;
+  align-self: flex-start !important;
+  flex: 0 0 auto !important;
+  margin: 0 0 12px 0 !important;
+  border: 1px solid rgba(39, 48, 51, .10) !important;
+  border-radius: 13px !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed .activity-toggle {
+  min-height: 34px !important;
+  padding: 5px 10px !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+  width: 100% !important;
+  max-width: none !important;
+  align-self: stretch !important;
+  flex: 0 0 auto !important;
+}
+
+
+/* NOVA CHAT UI v1.5 — Task progress sits directly above the composer. */
+.chat-page.section-page > .chat-workspace {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+.chat-page.section-page > .chat-workspace .conversation-messages {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  order: 1 !important;
+}
+.chat-page.section-page > .chat-workspace .conversation-empty {
+  flex: 1 1 auto !important;
+  order: 1 !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity {
+  order: 2 !important;
+  flex-shrink: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+}
+.chat-page.section-page > .chat-workspace .chat-task-box {
+  order: 3 !important;
+  flex-shrink: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+  align-self: flex-start !important;
+  width: fit-content !important;
+  max-width: min(520px, 100%) !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+  align-self: stretch !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+
+/* NOVA TASK PANEL LIFECYCLE + RESIZING v1.6
+   The panel is mounted only while a task is active. The user's expanded state
+   and chosen height are stored by React in localStorage. */
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+  display: flex !important;
+  flex-direction: column !important;
+  height: var(--nova-activity-height, 190px) !important;
+  min-height: 120px !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded .activity-details {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+}
+.chat-page.section-page > .chat-workspace .activity-resize-handle {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 9px !important;
+  width: 100% !important;
+  min-height: 9px !important;
+  cursor: ns-resize !important;
+  touch-action: none !important;
+  user-select: none !important;
+  background: transparent !important;
+}
+.chat-page.section-page > .chat-workspace .activity-resize-handle span {
+  display: block !important;
+  width: 38px !important;
+  height: 3px !important;
+  border-radius: 999px !important;
+  background: rgba(100, 119, 108, .35) !important;
+  transition: width .15s ease, background .15s ease !important;
+}
+.chat-page.section-page > .chat-workspace .activity-resize-handle:hover span,
+.chat-page.section-page > .chat-workspace .nova-live-activity.resizing .activity-resize-handle span {
+  width: 58px !important;
+  background: rgba(100, 119, 108, .75) !important;
+}
+.chat-page.section-page > .chat-workspace .nova-live-activity.resizing {
+  transition: none !important;
+}

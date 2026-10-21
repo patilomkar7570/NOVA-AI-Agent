@@ -101,6 +101,117 @@ function GridIcon() {
 }
 
 
+// Turns low-level agent traces into a short, human-readable activity feed.
+// It intentionally hides raw JSON/arguments and repetitive internal logs.
+function curateActivityEvents(rawEvents = []) {
+  if (!Array.isArray(rawEvents)) return []
+
+  const rawText = rawEvents.map((event) => String(event?.message || '')).join('\n')
+  const urlMatch = rawText.match(/https?:\/\/[^\s\]}"'<>]+/i)
+  let target = ''
+  if (urlMatch) {
+    try {
+      const host = new URL(urlMatch[0].replace(/[),.;]+$/, '')).hostname.replace(/^www\./, '')
+      target = host.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    } catch { /* Ignore malformed URLs in agent logs. */ }
+  }
+
+  const describeAction = (action, message) => {
+    const name = String(action || '').toUpperCase()
+    const context = target || ''
+    if (name === 'OPEN_URL' || name.includes('OPEN_FIRST')) return context ? `Opening ${context}` : 'Opening a webpage'
+    if (name.includes('SEARCH')) return context ? `Searching for ${context}` : 'Searching the web'
+    if (name.includes('CLICK')) return 'Clicking the relevant page control'
+    if (name.includes('TYPE') || name.includes('FILL') || name.includes('INPUT')) return 'Entering information on the page'
+    if (name.includes('SCROLL')) return 'Reviewing more of the page'
+    if (name.includes('WAIT')) return 'Waiting for the page to respond'
+    if (name.includes('EXTRACT') || name.includes('READ') || name.includes('GET_TEXT')) return 'Reading the page content'
+    if (name === 'DONE' || name === 'ANSWER') return 'Task completed'
+    if (name.includes('NAVIGATE')) return context ? `Navigating to ${context}` : 'Navigating to the requested page'
+    return ''
+  }
+
+  const curated = []
+  const seen = new Set()
+  const iconForActivity = (message, kind) => {
+    if (kind === 'error') return '⚠️'
+    if (kind === 'success' || kind === 'done') return '✅'
+    if (kind === 'plan') return '🧭'
+    if (/\b(opening|opened|navigating|navigate)\b/i.test(message)) return '🌐'
+    if (/\b(searching|search)\b/i.test(message)) return '🔎'
+    if (/\b(clicking|click)\b/i.test(message)) return '🖱️'
+    if (/\b(entering|typing|filling)\b/i.test(message)) return '⌨️'
+    if (/\b(scrolling|reviewing)\b/i.test(message)) return '📜'
+    if (/\b(reading|reviewing|content)\b/i.test(message)) return '📖'
+    if (/\b(waiting)\b/i.test(message)) return '⏳'
+    if (/\b(saved|downloaded)\b/i.test(message)) return '💾'
+    return '✨'
+  }
+  const push = (event, message, kind = 'progress') => {
+    const clean = String(message || '').replace(/\s+/g, ' ').trim()
+    if (!clean || seen.has(clean.toLowerCase())) return
+    seen.add(clean.toLowerCase())
+    curated.push({ id: event?.id ?? `${curated.length}-${clean}`, message: clean, kind, icon: iconForActivity(clean, kind) })
+  }
+
+  for (const event of rawEvents) {
+    const original = String(event?.message || '').trim()
+    if (!original) continue
+    const kind = String(event?.kind || '').toLowerCase()
+
+    if (kind === 'error' || /\b(error|failed|failure|exception)\b/i.test(original)) {
+      const concise = original
+        .replace(/^.*?(?:ERROR|EXCEPTION)\s*[:\-]?\s*/i, '')
+        .split(/\n|\{\s*['"](?:url|selector|text)['"]\s*:/)[0]
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (concise && concise.length < 220) push(event, concise, 'error')
+      else push(event, 'Something went wrong while completing this step.', 'error')
+      continue
+    }
+
+    // Collapse full planner dumps into a single useful intention.
+    if (/\bPLAN\b/i.test(original) && /OPEN_URL|SEARCH_WEB|CLICK|TYPE|SCROLL|DONE/i.test(original)) {
+      const action = original.match(/\b(OPEN_URL|OPEN_FIRST_ORGANIC_RESULT|OPEN_FIRST_VIDEO|SEARCH_WEB|CLICK|TYPE|FILL|SCROLL|NAVIGATE)\b/i)?.[1]
+      const summary = action ? describeAction(action, original) : ''
+      if (summary) push(event, `Plan: ${summary.charAt(0).toLowerCase()}${summary.slice(1)}`, 'plan')
+      continue
+    }
+
+    // Convert step traces into plain-language milestones.
+    const step = original.match(/(?:STEP\s*\d+\s*:\s*|ACTION\s*:\s*)([A-Z][A-Z0-9_]+)/i)
+    if (step) {
+      const actionName = String(step[1] || '').toUpperCase()
+      if (actionName === 'DONE' || actionName === 'ANSWER') {
+        push(event, 'Task completed', 'success')
+      } else {
+        const summary = describeAction(actionName, original)
+        if (summary) push(event, summary, 'progress')
+      }
+      continue
+    }
+
+    if (/^\s*(?:DONE|ANSWER)\s*(?:\{.*\})?\s*$/i.test(original) || /⚡\s*STEP\s*\d+\s*:\s*(?:DONE|ANSWER)/i.test(original)) {
+      push(event, 'Task completed', 'success')
+      continue
+    }
+
+    // Hide JSON argument dumps, raw action objects, and internal debug chatter.
+    if (/^\s*[{}\[\]]+\s*$/.test(original) || /^\s*\{"?(?:url|selector|text|x|y|button)"?\s*:/.test(original)) continue
+    if (/^(?:DEBUG|TRACE|RAW|HTTP\s+\d|REQUEST\s+BODY)\b/i.test(original)) continue
+
+    // Keep only short, user-facing status messages rather than arbitrary logs.
+    if (kind === 'success' || kind === 'done' || /\b(completed successfully|task completed|finished successfully)\b/i.test(original)) {
+      push(event, 'Task completed', 'success')
+    } else if (/\b(opened|navigated to|searching for|found|saved|downloaded|submitted|completed|could not|unable to)\b/i.test(original) && original.length <= 150) {
+      push(event, original.replace(/\s+/g, ' '), kind || 'progress')
+    }
+  }
+
+  // Keep the feed focused on the latest few meaningful milestones.
+  return curated.slice(-5)
+}
+
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('nova-sidebar-collapsed') === 'true')
 
@@ -110,18 +221,32 @@ function App() {
   })
 
 const [task, setTask] = useState('')
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
   const [activeSection, setActiveSection] = useState('home')
   const [profileOpen, setProfileOpen] = useState(false)
   const [userName, setUserName] = useState(() => localStorage.getItem('nova-user-name') || 'Omkar')
   const [nameDraft, setNameDraft] = useState(() => localStorage.getItem('nova-user-name') || 'Omkar')
   const profileRef = useRef(null)
   const [running, setRunning] = useState(false)
+  // Progress-panel visibility is controlled manually by the user.
   const [stopArmed, setStopArmed] = useState(false)
   const [backendOnline, setBackendOnline] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [chats, setChats] = useState([])
   const [activeChatId, setActiveChatId] = useState(null)
+  const chatRevisionRef = useRef(0)
   const [events, setEvents] = useState([])
+  // Task panel is hidden while idle. Its expanded/collapsed preference persists between tasks.
+  const [taskPanelVisible, setTaskPanelVisible] = useState(false)
+  const [activityExpanded, setActivityExpanded] = useState(() => localStorage.getItem('nova-task-panel-expanded') === 'true')
+  const [activityHeight, setActivityHeight] = useState(() => {
+    const saved = Number(localStorage.getItem('nova-task-panel-height'))
+    return Number.isFinite(saved) && saved >= 120 && saved <= 420 ? saved : 190
+  })
+  const [activityResizing, setActivityResizing] = useState(false)
+  const activityResizeRef = useRef(null)
+  const taskStartedRef = useRef(false)
 
 const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-theme') || 'system')
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false)
@@ -147,6 +272,36 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
   useEffect(() => {
     localStorage.setItem('nova-sidebar-collapsed', sidebarCollapsed)
   }, [sidebarCollapsed])
+
+  useEffect(() => {
+    localStorage.setItem('nova-task-panel-expanded', String(activityExpanded))
+  }, [activityExpanded])
+
+  useEffect(() => {
+    localStorage.setItem('nova-task-panel-height', String(activityHeight))
+  }, [activityHeight])
+
+  useEffect(() => {
+    if (!activityResizing) return undefined
+    const handlePointerMove = (event) => {
+      const drag = activityResizeRef.current
+      if (!drag) return
+      const nextHeight = Math.max(120, Math.min(420, drag.startHeight + drag.startY - event.clientY))
+      setActivityHeight(nextHeight)
+    }
+    const handlePointerUp = () => {
+      activityResizeRef.current = null
+      setActivityResizing(false)
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [activityResizing])
 
   const getInitials = (name) => {
     const words = name.trim().split(/\s+/).filter(Boolean)
@@ -224,6 +379,7 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
   }
 
   const loadChats = async (selectLatest = false) => {
+    const requestRevision = chatRevisionRef.current
     try {
       const response = await fetch('http://127.0.0.1:8000/api/chats')
 
@@ -233,6 +389,10 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
 
       const data = await response.json()
       const nextChats = Array.isArray(data.chats) ? data.chats : []
+
+      // Do not let an older history response overwrite a chat created or
+      // updated while this request was in flight.
+      if (requestRevision !== chatRevisionRef.current) return
 
       setChats(nextChats)
 
@@ -265,8 +425,16 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
   }
 
   const activeChat = chats.find((chat) => chat.id === activeChatId) || null
+  const curatedEvents = curateActivityEvents(events)
 
   const deleteChat = async (chatId) => {
+    const chatToDelete = chats.find((chat) => String(chat.id) === String(chatId))
+    const title = chatToDelete?.title || 'this conversation'
+    const confirmed = window.confirm(
+      `Permanently delete "${title}"?\n\nThis removes the conversation from NOVA's saved chat history and cannot be undone.`
+    )
+    if (!confirmed) return
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/chats/delete', {
         method: 'POST',
@@ -278,11 +446,14 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
         throw new Error('Could not delete chat')
       }
 
-      const data = await response.json()
+      // Remove only the exact conversation the user selected. Do not replace
+      // the whole local history with a possibly incomplete response payload.
+      await response.json().catch(() => ({}))
 
-      setChats(Array.isArray(data.chats) ? data.chats : [])
+      chatRevisionRef.current += 1
+      setChats((current) => current.filter((chat) => String(chat.id) !== String(chatId)))
 
-      if (activeChatId === chatId) {
+      if (String(activeChatId) === String(chatId)) {
         setActiveChatId(null)
       }
     } catch (error) {
@@ -291,10 +462,11 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
     }
   }
 
-  const savePromptToHistory = async (command) => {
+  const savePromptToHistory = async (command, forceNewChat = false) => {
     try {
-      // No active chat = the Home composer is starting a brand-new conversation.
-      if (!activeChatId) {
+      // Homepage submissions always create a new conversation, regardless of
+      // any previously selected chat ID left over from initial history loading.
+      if (forceNewChat || !activeChatId) {
         const response = await fetch('http://127.0.0.1:8000/api/chats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -308,6 +480,7 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
         const data = await response.json()
         const createdChat = data.chat
 
+        chatRevisionRef.current += 1
         setChats((current) => [
           createdChat,
           ...current.filter((chat) => chat.id !== createdChat.id),
@@ -340,6 +513,7 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
 
       const data = await response.json()
 
+      chatRevisionRef.current += 1
       setChats((current) =>
         current.map((chat) =>
           chat.id === activeChatId ? data.chat : chat
@@ -364,20 +538,27 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
     setTask('')
     setEvents([])
     setStopArmed(false)
+    setTaskPanelVisible(true)
+    taskStartedRef.current = false
+    // Keep the user's saved expanded/collapsed preference; only show the panel.
 
-    // A message from Home immediately opens the conversation screen.
-    // The first message creates the backend chat in the background.
-    const startedFromHome = activeSection === 'home' && !activeChatId
+    // Every submission from Home starts a fresh conversation. A message sent
+    // from an already-open conversation continues that conversation instead.
+    const startedFromHome = activeSection === 'home'
+    const mustCreateNewChat = startedFromHome || !activeChatId
     if (startedFromHome) {
+      setActiveChatId(null)
       setActiveSection('chat')
     }
 
+    // Keep the progress panel in the user's chosen state; do not auto-expand it.
     setStatusMessage('Starting conversation…')
 
-    const saved = await savePromptToHistory(command)
+    const saved = await savePromptToHistory(command, mustCreateNewChat)
 
     if (!saved) {
       setStatusMessage('Could not save chat history.')
+      setTaskPanelVisible(false)
       return
     }
 
@@ -400,14 +581,105 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
         throw new Error(data.error || 'Could not start the task')
       }
 
+      taskStartedRef.current = true
+      setTaskPanelVisible(true)
       setRunning(true)
       setBackendOnline(true)
       setStatusMessage('NOVA is working…')
     } catch (error) {
       console.error(error)
+      taskStartedRef.current = false
+      setTaskPanelVisible(false)
       setStatusMessage('Backend offline — start api.py')
     }
   }
+
+  // Shared voice handler used by the Home and Chat microphone buttons.
+  // It only fills the composer; it never sends or executes a transcript.
+  const toggleVoiceInput = () => {
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    if (running) {
+      setStatusMessage('Stop the current task before starting a voice command.')
+      return
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      setStatusMessage('Speech recognition is not available in this browser. Try a supported version of Microsoft Edge or Brave.')
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognitionRef.current = recognition
+      let finalTranscript = ''
+
+      recognition.lang = 'en-IN'
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.maxAlternatives = 1
+
+      recognition.onstart = () => {
+        setListening(true)
+        setStatusMessage('Listening… speak your command. Click the mic to stop.')
+      }
+
+      recognition.onresult = (event) => {
+        // Keep final words, while showing interim words live in the input.
+        let interimTranscript = ''
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index]
+          const words = result?.[0]?.transcript || ''
+          if (result.isFinal) {
+            finalTranscript = `${finalTranscript} ${words}`.trim()
+          } else {
+            interimTranscript += ` ${words}`
+          }
+        }
+
+        const liveTranscript = `${finalTranscript} ${interimTranscript}`.trim()
+        if (liveTranscript) setTask(liveTranscript)
+      }
+
+      recognition.onerror = (event) => {
+        setListening(false)
+        const messages = {
+          'not-allowed': 'Microphone access was blocked. Allow microphone access for NOVA in your browser settings.',
+          'service-not-allowed': 'The browser speech-recognition service is unavailable or blocked.',
+          'no-speech': 'No speech was detected. Press the microphone and try again.',
+          network: 'Online speech recognition could not connect. Check your internet connection.',
+          'audio-capture': 'The browser could not access an audio input device.',
+          aborted: ''
+        }
+        const message = messages[event.error] ?? `Speech recognition failed: ${event.error}.`
+        if (message) setStatusMessage(message)
+      }
+
+      recognition.onend = () => {
+        setListening(false)
+        if (recognitionRef.current === recognition) recognitionRef.current = null
+        setStatusMessage('Voice input stopped — review or edit the text, then press Send.')
+      }
+
+      recognition.start()
+    } catch (error) {
+      recognitionRef.current = null
+      setListening(false)
+      console.error('NOVA speech recognition:', error)
+      setStatusMessage('Could not start speech recognition. Check browser microphone permissions and try again.')
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort?.()
+    }
+  }, [])
 
   const handleActionButton = async () => {
     // Same two-stage behavior as the old keyboard ESC control:
@@ -448,17 +720,22 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
   }, [])
 
   useEffect(() => {
-    if (activeSection === 'chat') loadChats(false)
-  }, [activeSection])
-
-  useEffect(() => {
     const checkBackend = async () => {
       try {
         const response = await fetch('http://127.0.0.1:8000/api/status')
         if (!response.ok) throw new Error('Backend unavailable')
         const data = await response.json()
         setBackendOnline(true)
-        setRunning(Boolean(data.running))
+        const backendRunning = Boolean(data.running)
+        setRunning(backendRunning)
+        if (backendRunning) {
+          taskStartedRef.current = true
+          setTaskPanelVisible(true)
+        } else if (taskStartedRef.current) {
+          // Hide the panel when the active task finishes; retain its saved size/state.
+          taskStartedRef.current = false
+          setTaskPanelVisible(false)
+        }
 
         try {
           const eventResponse = await fetch('http://127.0.0.1:8000/api/events')
@@ -487,6 +764,7 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
   return (
 <div
   className={`app ${darkMode ? 'dark-mode' : ''}`}
+  data-chat-ui-version="1.7"
       style={{
         '--sidebar-width': `${sidebarCollapsed ? 72 : sidebarWidth}px`,
       }}
@@ -530,7 +808,7 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
               setTask('')
               setEvents([])
               setStatusMessage('')
-            }}
+                      }}
           >
             <span className="nav-icon"><HomeIcon /></span>
             <span className="nav-label">Home</span>
@@ -706,8 +984,23 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
               placeholder="Ask me to do anything..."
             />
 
-            <button className="microphone" aria-label="Voice input">
-              <MicIcon />
+            <button
+              className={`microphone ${listening ? 'voice-listening' : ''}`}
+              aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+              title={listening ? 'Stop listening' : 'Speak a command'}
+              aria-pressed={listening}
+              type="button"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                toggleVoiceInput()
+              }}
+            >
+              {listening ? (
+                <span className="voice-wave" aria-hidden="true">
+                  <i /><i /><i /><i /><i />
+                </span>
+              ) : <MicIcon />}
             </button>
 
             <button
@@ -882,9 +1175,9 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
                       className={`conversation-message ${message.role === 'user' ? 'user' : 'nova'}`}
                       key={`${message.time || 'message'}-${index}`}
                     >
-                      <span className="conversation-role">
-                        {message.role === 'user' ? 'YOU' : 'NOVA'}
-                      </span>
+                      {message.role !== 'user' && (
+                        <span className="conversation-role">NOVA</span>
+                      )}
                       <p>{message.content}</p>
                     </div>
                   ))}
@@ -897,30 +1190,67 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
                 </div>
               )}
 
-              {events.length > 0 && (
-                <div className="nova-live-activity" aria-live="polite" style={{
-                  margin: '0 auto 16px',
-                  width: 'min(860px, calc(100% - 48px))',
-                  padding: '14px 16px',
-                  borderRadius: '18px',
-                  border: '1px solid rgba(40, 45, 38, 0.10)',
-                  background: 'rgba(255, 255, 255, 0.48)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)'
-                }}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'9px'}}>
-                    <span style={{fontSize:'10px',letterSpacing:'0.14em',fontWeight:700,opacity:0.58}}>LIVE ACTIVITY</span>
-                    <span style={{width:'7px',height:'7px',borderRadius:'50%',background:running?'#5f735d':'#92988e',boxShadow:running?'0 0 0 4px rgba(95,115,93,0.12)':'none'}} />
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:'7px',maxHeight:'190px',overflowY:'auto'}}>
-                    {events.slice(-8).map((event) => (
-                      <div key={event.id} style={{display:'flex',alignItems:'flex-start',gap:'9px',fontSize:'12px',lineHeight:1.45,opacity:event.kind==='log'?0.66:0.9}}>
-                        <span style={{minWidth:'6px',width:'6px',height:'6px',marginTop:'6px',borderRadius:'50%',background:event.kind==='error'?'#a55c55':(event.kind==='success'||event.kind==='done')?'#668062':'#8b9186'}} />
-                        <span>{event.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
+
+              {taskPanelVisible && (
+                <section
+                  className={`nova-live-activity ${activityExpanded ? 'expanded' : 'collapsed'} ${activityResizing ? 'resizing' : ''}`}
+                  aria-label="Task progress"
+                  aria-live="polite"
+                  style={activityExpanded ? { '--nova-activity-height': `${activityHeight}px` } : undefined}
+                >
+                  {activityExpanded && (
+                    <div
+                      className="activity-resize-handle"
+                      role="separator"
+                      aria-orientation="horizontal"
+                      aria-label="Resize task progress panel"
+                      title="Drag up or down to resize task progress"
+                      onPointerDown={(event) => {
+                        event.preventDefault()
+                        activityResizeRef.current = { startY: event.clientY, startHeight: activityHeight }
+                        setActivityResizing(true)
+                      }}
+                    ><span /></div>
+                  )}
+                  <button
+                    type="button"
+                    className="activity-toggle"
+                    onClick={() => setActivityExpanded((expanded) => !expanded)}
+                    title={activityExpanded ? 'Collapse task progress' : 'Expand task progress'}
+                    aria-label={activityExpanded ? 'Collapse task progress details' : 'Expand task progress details'}
+                    aria-expanded={activityExpanded}
+                    aria-controls="nova-activity-details"
+                  >
+                    <span className="activity-toggle-copy">
+                      <span className="activity-toggle-title">📋 TASK PROGRESS</span>
+                      <span className="activity-toggle-status">
+                        {statusMessage || (running ? 'NOVA is working…' : 'Latest task updates')}
+                      </span>
+                    </span>
+                    <span className={`activity-chevron ${activityExpanded ? 'open' : ''}`} aria-hidden="true">⌄</span>
+                  </button>
+
+                  {activityExpanded && (
+                    <div className="activity-details" id="nova-activity-details">
+                      {statusMessage && (
+                        <p className="activity-current-status">{statusMessage}</p>
+                      )}
+                      {curatedEvents.length > 0 ? (
+                        <div className="activity-event-list">
+                          {curatedEvents.map((event) => (
+                            <div className="activity-event" key={event.id}>
+                              <span className="activity-event-icon" aria-hidden="true">{event.icon || '✨'}</span>
+                              <span>{event.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="activity-empty">Progress updates will appear here while NOVA works.</p>
+                      )}
+                    </div>
+                  )}
+                </section>
               )}
 
               <div className="task-box chat-task-box">
@@ -932,8 +1262,23 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
                   }}
                   placeholder={activeChat ? 'Continue this conversation...' : 'Start a new conversation...'}
                 />
-                <button className="microphone" aria-label="Voice input" type="button">
-                  <MicIcon />
+                <button
+                  className={`microphone ${listening ? 'voice-listening' : ''}`}
+                  aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+                  title={listening ? 'Stop listening' : 'Speak a command'}
+                  aria-pressed={listening}
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    toggleVoiceInput()
+                  }}
+                >
+                  {listening ? (
+                    <span className="voice-wave" aria-hidden="true">
+                      <i /><i /><i /><i /><i />
+                    </span>
+                  ) : <MicIcon />}
                 </button>
                 <button
                   className="send-button"
@@ -945,6 +1290,8 @@ const [themeMode, setThemeMode] = useState(() => localStorage.getItem('nova-them
                   {running || stopArmed ? '■' : '↑'}
                 </button>
               </div>
+
+
             </div>
           </section>
         ) : (
