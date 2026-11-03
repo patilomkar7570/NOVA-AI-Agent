@@ -1,241 +1,397 @@
-# NOVA — Natural-language Operating & Virtual Assistant
+# NOVA Alpha 0.5 — Voice & Browser Expansion
 
-> **Alpha 0.4 — Unreleased | Experimental Windows desktop AI agent**
->
-> NOVA is a local-first AI agent that accepts natural-language instructions, plans browser actions with a local Ollama model, and carries them out in Brave using Playwright. Alpha 0.4 focuses on voice input, a refreshed interface, stronger website-aware task handling, and a local website-learning layer.
+**Release tag:** `v0.5.0-alpha`
+**Release theme:** A more natural voice experience, with more freedom in browser automation.
 
-## Highlights in Alpha 0.4
-
-### 🎙️ Voice-first command input
-
-- Voice input is available from the Home and Chat experiences through a shared microphone interaction.
-- A visible listening state and animated microphone feedback make it clearer when NOVA is listening.
-- Speech is transcribed into the command composer so you can review or edit it before sending.
-- Microphone-permission and speech-service errors are surfaced in the interface.
-
-**Voice support note:** the current voice UI uses the browser's Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`). Availability differs between browsers and may depend on a browser-managed speech service and an internet connection. This is not the same as an offline Whisper transcription engine, and offline voice recognition is not guaranteed. If voice input is unavailable in your browser, try a supported, up-to-date browser such as Microsoft Edge, allow microphone access, and check whether your browser or network is blocking its speech service.
-
-### ✨ Refreshed user interface
-
-- Updated Home and Chat command-entry experiences.
-- Shared voice-input behavior between the Home and Chat microphone controls.
-- Clearer listening, running, stopped, and error feedback.
-- Improved task-progress/activity presentation so users can understand what NOVA is doing without relying only on raw terminal output.
-- Responsive styling refinements for the main agent workflow.
-
-### 🧠 Improved website-aware agent behavior
-
-- Uses the local **`qwen3:8b`** model through Ollama for task planning and browser decisions.
-- Carries conversational context between related commands and can keep the current website in context for follow-up instructions.
-- Uses bounded action plans and limited replanning to keep browser tasks focused.
-- Can resolve website names and site-scoped requests before asking the model to guess a destination.
-
-NOVA is experimental. A good plan does not guarantee that every website action will succeed: site layouts, login requirements, consent prompts, network conditions, and browser changes can affect results.
-
-### 🌐 Local website directory
-
-- Includes a searchable directory of website names, URLs, hosts, aliases, and regional variants.
-- The current dataset checked for this release contains approximately **1,116 entries**.
-- Alias matching helps NOVA recognize common names and direct commands such as “open …” to a suitable website URL.
-- Regional preferences help choose an appropriate country-specific destination when one is available; an explicit region in a command can take precedence.
-
-The checked-in `website_directory.json` is reference data used by the resolver, not a record of an individual user's browsing history. Keep personal runtime data and credentials out of this file.
-
-### 📚 Local website learning and memory
-
-NOVA's website-memory module uses a local SQLite database to retain reusable website knowledge, including:
-
-- Page profiles and lightweight page/controls metadata.
-- Previously verified element locators for actions such as clicking and typing.
-- Reusable workflow patterns scoped to a website and starting page.
-- Success/failure and last-used information to help rank previously useful locators and workflows.
-
-This is **retrieval-based local learning**, not fine-tuning or retraining the Qwen model. The database is created locally as needed and is not intended to be committed to the public repository. It is designed to store website metadata and reusable action patterns, not passwords, cookies, or form contents.
-
-### 🧰 Runtime and startup improvements
-
-- Adds a one-click Windows launcher for the backend and Vite frontend.
-- Keeps per-installation runtime data, browser profiles, memory, and SQLite state separate from the shared source code.
-- Adds a `.gitignore` policy for generated and personal runtime files.
-- Includes the website-directory resolver and website-memory modules required by the current agent workflow.
+NOVA Alpha 0.5 brings a substantial expansion to Voice Mode and browser compatibility. The headline feature is the new voice experience: online and local speech recognition, live transcription, multiple voice profiles, and local speech generation through Voicebox.
 
 ---
 
-## How NOVA works
+# ⬇️ Installation & Setup
 
-```text
-Voice or typed command
-          ↓
-      React + Vite UI
-          ↓  HTTP API (127.0.0.1:8000)
-       Python backend
-          ↓
- Website directory + local website memory
-          ↓
- Ollama / qwen3:8b plans browser actions
-          ↓
- Playwright controls the Brave browser
-          ↓
- Progress and results return to the UI
-```
+> **Read before installing:** NOVA Alpha 0.5 is currently a Windows development/alpha build. The current interface runs in a browser; a standalone desktop application and a self-contained EXE are not part of this release. The automated `Install-NOVA.bat` bootstrapper is still a prototype and has not completed a clean Windows end-to-end test. Use the manual setup below until the installer has been corrected and validated.
 
-NOVA is intended to run on your own Windows PC. The browser agent and its persistent browser profile can interact with websites using the permissions and account state available in that profile. Review a task before using it for sensitive actions.
+## 1. Check the system requirements
 
-## Requirements
+- **Operating system:** Windows 10 22H2 (64-bit) or Windows 11 (64-bit).
+- **Memory:** 16 GB RAM is the minimum target for the two-model setup; 32 GB is recommended for smoother multitasking.
+- **Storage:** Keep at least 20 GB free for the application, AI models, voice models, and temporary downloads.
+- **Internet:** Required for the initial application/dependency/model downloads. Browser-based speech recognition may also use an online recognition service.
+- **Audio:** A working microphone and speakers/headphones are recommended for Voice Mode.
 
-Install these before launching NOVA:
+The AI models can be demanding. Performance depends on the CPU, GPU, RAM, available VRAM, and background applications.
 
-1. **Windows 10 or 11**.
-2. **Python 3.11 or newer** available as `py` or `python` in PowerShell.
-3. **Node.js LTS and npm**.
-4. **Brave Browser** installed on the machine. The current agent searches standard Brave installation locations.
-5. **Ollama for Windows**, running locally.
-6. The **`qwen3:8b`** Ollama model downloaded locally.
+## 2. Download NOVA Alpha 0.5
 
-NOVA currently expects Ollama's `qwen3:8b` model by default. If you change the model in the agent configuration, make sure the corresponding model is installed in Ollama too.
+1. Open the [NOVA GitHub Releases page](https://github.com/patilomkar7570/NOVA-AI-Agent/releases).
+2. Download the source archive for **Alpha 0.5 / `v0.5.0-alpha`** once that release is published.
+3. Extract the archive to a normal writable folder.
+4. Keep the project structure intact. The main folder should contain files such as `api.py`, `agent.py`, `requirements.txt`, and a `frontend` folder.
+5. Place `Startup-Portable.bat` in that main project folder, beside `api.py` and `agent.py`.
 
-## Start NOVA from scratch
+Do not mix Alpha 0.5 files with the older Alpha 0.4 source.
 
-These steps are for a new clone and a first-time setup.
+## 3. Install Python
 
-### 1. Clone the repository
+NOVA's supplied Alpha 0.5 installer script currently pins **CPython 3.14.7** through the official Python Install Manager.
 
-Open PowerShell and run:
+1. Install the [Python Install Manager](https://www.python.org/downloads/) for Windows. The [official Windows instructions](https://docs.python.org/3/using/windows.html) explain the manager and its commands.
+2. Open a new PowerShell window.
+3. Install the project's pinned Python version:
 
-```powershell
-git clone https://github.com/patilomkar7570/NOVA-AI-Agent.git
-cd NOVA-AI-Agent
-```
+   ```powershell
+   pymanager install 3.14.7
+   ```
 
-If you already downloaded the source as a ZIP, extract it and open PowerShell in the extracted `NOVA-AI-Agent` folder instead.
+4. Confirm that it is available:
 
-### 2. Install and prepare Ollama
+   ```powershell
+   pymanager exec 3.14.7 --version
+   ```
 
-Install Ollama, launch it, then download the model:
+5. In the NOVA project folder, create a virtual environment and install the Python requirements:
 
-```powershell
-ollama pull qwen3:8b
-ollama list
-```
+   ```powershell
+   pymanager exec 3.14.7 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
 
-Make sure `qwen3:8b` appears in the model list and Ollama is running before starting the backend. The first model download can be several gigabytes and will take time depending on your connection.
+**Version note:** Python 3.14.8 is available upstream ([official release page](https://www.python.org/downloads/release/python-3148/)), but this Alpha 0.5 installer snapshot still pins 3.14.7. Use the pinned version for this build unless the project updates and tests its Python pin. Do not change Python versions midway through an installation.
 
-### 3. Create the Python environment
+## 4. Install Node.js and npm
 
-Run these commands from the **repository root** (the folder containing `api.py`):
+NOVA's frontend uses Node.js and npm.
 
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
+1. Open the [official Node.js download page](https://nodejs.org/en/download/).
+2. Select the **LTS** release for Windows x64. Do not choose an Alpha, nightly, or Current build for this setup.
+3. Run the installer and keep the npm option enabled.
+4. Open a new terminal and verify:
 
-If PowerShell refuses to activate the environment, you can skip activation and install packages using the environment's Python directly:
+   ```powershell
+   node --version
+   npm --version
+   ```
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+The installer script uses the WinGet `OpenJS.NodeJS.LTS` package, so it follows the LTS channel rather than fixing a Node version. At the time this README was prepared, the official download page listed Node.js 26.13.0 as LTS; check the official page for the current LTS release.
 
-### 4. Install frontend dependencies
+## 5. Install the frontend packages
 
-In a second PowerShell command, or after returning to the repository root, run:
+1. Open PowerShell in the NOVA project folder.
+2. Move into the frontend folder:
 
-```powershell
-cd frontend
-npm install
-```
+   ```powershell
+   cd frontend
+   ```
 
-Keep the frontend dependencies in `frontend/node_modules`; this folder is generated locally and should not be committed.
+3. If `package-lock.json` is present, install the locked dependencies:
 
-### 5. Start the backend
+   ```powershell
+   npm ci
+   ```
 
-Open a PowerShell terminal in the **repository root** and run:
+   If the release archive does not contain a lock file, use:
 
-```powershell
-.\.venv\Scripts\python.exe api.py
-```
+   ```powershell
+   npm install
+   ```
 
-Leave this terminal open. The backend starts NOVA's browser worker and may launch Brave. The API listens on `127.0.0.1:8000`.
+4. Build the frontend:
 
-You can check the local backend health at <http://127.0.0.1:8000/api/health>.
+   ```powershell
+   npm run build
+   ```
 
-### 6. Start the frontend
+5. Return to the project root:
 
-Open another PowerShell terminal and run:
+   ```powershell
+   cd ..
+   ```
 
-```powershell
-cd path\to\NOVA-AI-Agent\frontend
-npm run dev
-```
+Do not delete `package.json` or the lock file. They define the frontend dependencies and scripts.
 
-Replace `path\to\NOVA-AI-Agent` with the actual folder where you cloned or extracted the project. Vite will print the local URL, normally <http://localhost:5173>.
+## 6. Install Ollama and download NOVA's language models
 
-Open that URL in your browser. Keep both the backend and frontend terminals open while using NOVA.
+Ollama runs NOVA's local language models.
 
-### 7. Use voice input
+1. Download and install [Ollama for Windows](https://ollama.com/download/windows).
+2. Open a new PowerShell window.
+3. Download the two model variants used by the Alpha 0.5 installer:
 
-1. Open NOVA in a browser that supports its Web Speech API integration.
-2. Allow microphone permission when prompted.
-3. Press the microphone button on Home or in Chat.
-4. Speak clearly, then stop listening and review the transcription in the command field.
-5. Edit the command if needed and send it.
+   ```powershell
+   ollama pull qwen3:8b
+   ollama pull qwen3:1.7b
+   ```
 
-If the microphone is unavailable, check site permissions and your selected input device. Errors such as `network` or `service-not-allowed` may mean the browser's speech service is unavailable or blocked. Voice input is not guaranteed to work offline.
+4. Confirm that both models appear:
+
+   ```powershell
+   ollama list
+   ```
+
+5. Make sure Ollama is running. The Windows app normally runs its local service in the background. If you need to start it manually, use:
+
+   ```powershell
+   ollama serve
+   ```
+
+NOVA connects to Ollama at `http://127.0.0.1:11434` by default. The local Ollama REST API does not require a cloud API key for this local setup.
+
+## 7. Install and prepare Voicebox
+
+Voicebox provides NOVA's local speech recognition and speech generation.
+
+1. For the version targeted by the supplied Alpha 0.5 installer, use the [Voicebox 0.5.0 Windows x64 MSI](https://github.com/jamiepine/voicebox/releases/download/v0.5.0/Voicebox_0.5.0_x64_en-US.msi). The [official Voicebox installation guide](https://docs.voicebox.sh/overview/installation) explains the Windows installation process.
+2. Double-click the MSI and complete the installation.
+3. Launch Voicebox from the Windows Start menu.
+4. Wait for the Voicebox local server to become ready. The application should show that its backend/server is running.
+5. Check the model manager in Voicebox:
+   - Download **Whisper Base** for local speech-to-text.
+   - Download **Kokoro** for the default lightweight text-to-speech path.
+6. Open Voicebox's voice/profile area and select or create a preset voice profile.
+7. Open NOVA's Voice settings and select a compatible Voicebox profile.
+
+The Alpha 0.5 setup script requests the `whisper-base` and `kokoro` models through Voicebox's local model-management API. Additional engines and voice choices are optional and depend on the Voicebox version and models installed. Voicebox supports multiple TTS engines and preset/custom voice profiles; not every engine is downloaded automatically by NOVA.
+
+Useful Voicebox guides:
+- [Quick Start and voice profiles](https://docs.voicebox.sh/overview/quick-start)
+- [Preset voices](https://docs.voicebox.sh/overview/preset-voices)
+- [Available TTS models](https://docs.voicebox.sh/developer/model-management)
+- [Whisper transcription](https://docs.voicebox.sh/developer/transcription)
+- [TTS engine integration](https://docs.voicebox.sh/developer/tts-generation)
+
+Voicebox normally exposes its local API at `http://127.0.0.1:17493`. NOVA uses this local service for Whisper transcription, voice profiles, and speech generation. No hosted Voicebox API key is required for this local connection.
+
+## 8. Install and choose a supported browser
+
+NOVA's Playwright browser automation supports these desktop browsers:
+
+- [Brave](https://brave.com/download/) — use the regular Release/Stable version.
+- [Microsoft Edge](https://www.microsoft.com/edge/download) — use the regular Stable version.
+- [Google Chrome](https://www.google.com/chrome/) — use the regular Stable version.
+
+**Recommended setup:**
+
+1. Install at least one of the supported browsers.
+2. In Windows **Settings → Apps → Default apps**, select Brave, Edge, or Chrome as the default browser if you want NOVA to follow that browser.
+3. Keep the browser updated.
+4. When NOVA opens its local interface for the first time, allow microphone access if you plan to use Voice Mode.
+
+NOVA detects a supported Windows default browser. If the default browser is not Brave, Edge, or Chrome, the installer uses Microsoft Edge as its fallback. NOVA does not need you to change your normal browser profile or install a special browser extension.
+
+The browser automation layer uses Playwright for Python and launches the selected Chromium-based browser with a separate NOVA automation profile. Playwright's documentation notes that using a custom installed browser executable is version-sensitive; using a supported stable browser and keeping it updated is recommended.
+
+References:
+- [Playwright for Python — browser setup](https://playwright.dev/python/docs/browsers)
+- [Playwright BrowserType API](https://playwright.dev/python/docs/api/class-browsertype)
+
+### Browser speech recognition note
+
+The online recognition mode uses the browser's SpeechRecognition/Web Speech API where the browser supports it. Availability and behaviour can vary by browser and version, and standard browser recognition may depend on an online service.
+
+Do not assume that installing stable Edge automatically enables offline browser recognition. Microsoft's documented on-device SpeechRecognition feature is currently limited to suitable Edge Insider Canary/Dev builds with the relevant on-device flag enabled. NOVA's local offline path is **Voicebox + Whisper Base**, which is separate from that experimental Edge feature.
+
+## 9. Start NOVA
+
+Before starting:
+
+- Python dependencies have been installed.
+- Frontend dependencies have been installed.
+- Ollama is running and both Qwen3 models are downloaded.
+- Voicebox is open and its local server is ready if you want voice features.
+- `Startup-Portable.bat` is in the main NOVA project folder.
+
+Then:
+
+1. Double-click `Startup-Portable.bat`.
+2. Leave the NOVA backend and frontend terminal windows open.
+3. Open the frontend address shown by the Vite terminal. The usual development address is `http://127.0.0.1:5173`.
+4. The backend health endpoint is `http://127.0.0.1:8000/api/health`.
+5. Keep Voicebox running while using local transcription or speech generation.
+
+`Startup-Portable.bat` is a development launcher, not an application installer. It prefers the project's `.venv` Python interpreter; if that environment is missing, it falls back to `python` on Windows `PATH`. Ollama and npm must also be available on `PATH`. The script starts the frontend development server, but it does not install software or download AI models.
 
 ---
 
-## Optional: One-click Windows startup
+# 🎙️ What's new in Alpha 0.5
 
-The repository includes `NOVA_One_Click_Startup.bat`, which starts the Python backend and frontend in separate terminal windows. Complete the prerequisites above first, including the Ollama model and Python/frontend dependencies.
+## 1. Voice Mode — the headline feature
 
-The portable version of the launcher uses its own folder as the project root, so it can be run after cloning to a different directory. Keep both launched windows open while NOVA is running. If either one reports an error, read that terminal message first; the launcher cannot fix missing browser installations, missing Ollama models, or blocked speech services automatically.
+Voice Mode is the centrepiece of NOVA Alpha 0.5. It is designed as a separate, more complete way to interact with NOVA, rather than just a microphone button attached to ordinary chat.
 
-## Local files and privacy
+### Hybrid online and offline speech recognition
 
-Some files are generated on each installation and should remain local. Depending on which features have been used, these can include:
+- **Auto mode:** Uses the available online recognition path and provides a local retry/fallback route when required.
+- **Online mode:** Uses browser-based speech recognition where supported.
+- **Local mode:** Sends captured audio to NOVA's backend, which forwards it to Voicebox and Whisper.
+- Local Whisper recognition can work without relying on the browser's online speech-recognition service once the required Voicebox model is installed.
 
-- `BraveAgentProfile/` — NOVA's dedicated browser profile.
-- `chat_history.json` — saved chat records.
-- `nova_memory.json` — local agent/conversation memory, if enabled by the current build.
-- `nova_page_text/` — local page-text snapshots, if created by the current build.
-- `nova_website_memory.sqlite3` and its SQLite WAL/SHM files — website profiles, locator history, and workflow metadata.
-- Python virtual environments, `frontend/node_modules/`, logs, and build output.
+### Live voice interaction
 
-These are per-installation files, not release assets. The `.gitignore` should continue excluding personal/runtime data. The public website directory `website_directory.json` is different: NOVA uses it as a static, shared lookup dataset.
+- Animated listening/recording feedback.
+- Live transcript shown in the interface.
+- Stop control for ending capture.
+- Review recognised text before sending it.
+- Manual send control.
+- A local retry path when browser recognition fails or is unavailable.
 
-## Troubleshooting
+### Multiple voices and speech generation
 
-| Problem | What to check |
-|---|---|
-| Backend does not start | Activate `.venv`, confirm dependencies were installed from `requirements.txt`, and read the backend terminal error. |
-| Ollama/model error | Launch Ollama and check `ollama list` for `qwen3:8b`. |
-| Brave does not open | Install Brave Browser and make sure it is available in a standard installation path. |
-| UI says the backend is offline | Start `api.py` and confirm `http://127.0.0.1:8000/api/health` responds. |
-| Frontend dependencies are missing | Run `npm install` inside `frontend/`. |
-| Voice button is unavailable or fails | Allow microphone access, try a supported browser, and check browser/network policies for its speech-recognition service. |
-| NOVA chooses the wrong website | Use a more specific command, including the site's name or intended region. Website layouts and aliases can change over time. |
+- Voicebox-backed speech output.
+- Voice profile selection in NOVA's Voice settings.
+- Support for multiple compatible preset/custom voice profiles.
+- Speech output can use a different engine from the speech-recognition engine.
+- Progressive voice generation and playback handling, including interruption/resume support in the backend integration.
 
-## Development notes
+Voice availability depends on the engines and profiles installed in Voicebox. The Alpha 0.5 setup path downloads Kokoro as its default TTS model; optional engines must be installed separately.
 
-- Backend: Python, local Ollama model, Playwright, and Brave Browser.
-- Frontend: React and Vite.
-- Local website-memory storage: SQLite.
-- Website lookup: `website_directory.py` reads `website_directory.json` at startup.
-- The agent is designed for experimentation. Review actions before relying on it for purchases, account changes, or other sensitive work.
+## 2. Expanded browser compatibility
 
-## Alpha 0.4 — Unreleased change summary
+NOVA's Playwright automation is no longer tied to Brave alone.
 
-- **Voice integration:** Home and Chat microphone interaction, animated listening UI, live transcription into the command composer, and more visible voice errors.
-- **Interface:** refreshed command-entry, chat and task-status/activity UI.
-- **Agent:** improved website-aware context and request routing, using Ollama's `qwen3:8b` to plan browser actions.
-- **Learning:** local SQLite storage for website/page metadata, verified locators, and reusable workflow patterns with success/failure tracking.
-- **Website directory:** local searchable reference directory with around 1,116 website entries, aliases, URLs, hostnames, and regional variants.
-- **Startup and repository hygiene:** one-click Windows launcher; runtime files excluded from version control; shared website directory kept separate from personal browser/memory databases.
+- Brave
+- Microsoft Edge
+- Google Chrome
 
-> Alpha 0.4 is unreleased and experimental. Feature availability—especially browser speech recognition—depends on local software, browser capabilities, network connectivity, and website behavior. The learning system stores reusable metadata; it does not train a new model.
+The browser runtime detects a supported browser and uses a separate NOVA automation profile for the selected browser. If the Windows default is unsupported, Microsoft Edge is the fallback used by the installer. NOVA does not change the system-wide default browser.
 
-## License
+## 3. Chat and small UI refinements
 
-No license has been specified here yet. Until a license file is added, do not assume the code is available for unrestricted reuse or redistribution.
+- Added a search button to the chat interface.
+- Made small interface refinements.
+- Improved voice-mode controls and interaction feedback.
+
+This is a focused UI update, not a complete redesign.
+
+## 4. Bug fixes and reliability improvements
+
+- More browser-neutral session cleanup and recovery.
+- Clearer handling of local voice service failures.
+- Improved backend error handling around Voicebox speech generation.
+- Additional bug fixes and integration refinements.
+
+---
+
+# 🔌 Local APIs and service connections
+
+NOVA's core AI and voice integrations in this Alpha 0.5 setup are local services on the same computer.
+
+| Component | Local address | What NOVA uses it for |
+|---|---|---|
+| NOVA Python backend | `http://127.0.0.1:8000` | Frontend-to-backend communication |
+| Ollama | `http://127.0.0.1:11434` | Local Qwen3 language models |
+| Voicebox | `http://127.0.0.1:17493` | Whisper transcription, voice profiles, and TTS |
+| NOVA frontend dev server | `http://127.0.0.1:5173` | Browser-based NOVA interface |
+
+### Important NOVA backend routes
+
+- `GET /api/health` — checks whether the NOVA backend is responding.
+- `GET /api/voice/profiles` — lists Voicebox voice profiles exposed to NOVA.
+- `GET /api/voice/whisper/status` — checks local Whisper model status.
+- `POST /api/voice/transcribe` — sends WAV audio to the local Voicebox transcription path.
+- `POST /api/voice/speak` — requests speech generation using the selected Voicebox profile and language.
+- `POST /api/voice/whisper/download` and `POST /api/voice/whisper/preload` — manages the local Whisper model through NOVA's backend.
+
+### Ollama connection
+
+NOVA uses Ollama's local REST API, including the chat endpoint:
+
+- `POST http://127.0.0.1:11434/api/chat`
+
+The selected model is configured by NOVA's agent. The Alpha 0.5 installer prepares `qwen3:8b` and `qwen3:1.7b`.
+
+Official reference: [Ollama API — chat endpoint](https://docs.ollama.com/api/chat).
+
+### Voicebox connection
+
+NOVA communicates with Voicebox through its local API. The integration checks Voicebox's OpenAPI schema where needed so it can adapt to the request fields exposed by the installed Voicebox build. Important local Voicebox paths used by the setup/integration include:
+
+- `/openapi.json` — inspect the installed API schema.
+- `/models/status` and `/models/download` — model status and downloads.
+- `/transcribe` — local audio transcription.
+- `/profiles` — voice profiles.
+- `/generate` — speech generation.
+
+Official references: [Voicebox model management](https://docs.voicebox.sh/developer/model-management), [transcription](https://docs.voicebox.sh/developer/transcription), and [TTS generation](https://docs.voicebox.sh/developer/tts-generation).
+
+### Do I need an API key?
+
+For the local Alpha 0.5 setup described here:
+
+- **Ollama local API:** No cloud API key is required.
+- **Voicebox local API:** No hosted API key is required for the local service.
+- **Playwright/browser automation:** No separate browser automation API key is required.
+- **Browser SpeechRecognition:** No NOVA API key is entered, but the browser's online recognition implementation may use a browser-managed network service.
+
+The reviewed Alpha 0.5 setup files do not specify an OpenAI, Gemini, or Anthropic API key as a requirement for the local Qwen3 + Voicebox workflow. This does not rule out optional integrations added in other branches or later releases. Never place private API keys, passwords, personal file paths, or private recordings in this README or in a public issue.
+
+---
+
+# 🧩 Important project files
+
+- `api.py` — Python API/backend entry point.
+- `agent.py` — core AI agent and browser automation logic.
+- `requirements.txt` — Python dependencies.
+- `frontend/` — NOVA's browser-based interface.
+- `nova_browser_runtime.py` — browser detection and browser-specific automation profile support.
+- `apply_browser_compat.py` — development patch utility for browser compatibility.
+- `Startup-Portable.bat` — portable development launcher.
+- `app.py` — legacy Tkinter interface; it is not used by the current browser-based startup path.
+
+Keep the development tools and backups until a later cleanup. The current Alpha 0.5 interface is still browser-based; the standalone desktop application/EXE is planned separately and is not included in this release.
+
+---
+
+# 🧪 Validation status and known limitations
+
+The supplied validation report records:
+
+- 3 Python unit tests passed.
+- Static syntax checks passed for the browser runtime and compatibility patcher.
+- Static parsing passed for the patched agent and API.
+
+The following were **not** completed in the supplied validation report:
+
+- A full clean installation on Windows.
+- Real WinGet installation of all dependencies.
+- Full microphone and speech-recognition testing across Brave, Edge, and Chrome.
+- Complete model download and load testing on real hardware.
+- Clean-machine end-to-end testing of the installer.
+
+For this reason, the automated `Install-NOVA.bat` bootstrapper remains a prototype until those checks are completed. Do not advertise it as a production-ready public installer yet.
+
+## Troubleshooting checklist
+
+- **Python not found:** Reopen PowerShell after installing Python Install Manager. Check `pymanager --version` and `python --version`.
+- **Python dependency error:** Confirm `.venv` was created with Python 3.14.7 and rerun `pip install -r requirements.txt` using `.venv\Scripts\python.exe`.
+- **npm not found:** Install Node.js LTS, reopen the terminal, and check `node --version` and `npm --version`.
+- **Ollama is unavailable:** Open Ollama and run `ollama list`. Confirm the local API responds at `http://127.0.0.1:11434/api/tags`.
+- **Voicebox is unavailable:** Open Voicebox and wait for its local server to become ready. Check `http://127.0.0.1:17493/models/status`.
+- **No local transcription:** Confirm Whisper Base is downloaded in Voicebox and select Local or retry locally in NOVA's Voice Mode.
+- **No voice output:** Confirm Kokoro or another compatible TTS engine is installed, a voice profile exists, and that profile supports the selected language.
+- **Microphone not detected:** Allow microphone access for the NOVA local website in Windows and browser site settings.
+- **Browser automation cannot launch:** Install/update one of the supported stable browsers and set it as the Windows default. Check the backend console for the detected browser and executable.
+
+---
+
+# 🔗 Official downloads and documentation
+
+- [NOVA project releases](https://github.com/patilomkar7570/NOVA-AI-Agent/releases)
+- [Python downloads / Install Manager](https://www.python.org/downloads/)
+- [Python on Windows documentation](https://docs.python.org/3/using/windows.html)
+- [Node.js downloads](https://nodejs.org/en/download/)
+- [Ollama for Windows](https://ollama.com/download/windows)
+- [Ollama API documentation](https://docs.ollama.com/api/chat)
+- [Voicebox Windows installation](https://docs.voicebox.sh/overview/installation)
+- [Voicebox 0.5.0 Windows MSI](https://github.com/jamiepine/voicebox/releases/download/v0.5.0/Voicebox_0.5.0_x64_en-US.msi)
+- [Voicebox API and model documentation](https://docs.voicebox.sh/developer/model-management)
+- [Brave Stable](https://brave.com/download/)
+- [Microsoft Edge Stable](https://www.microsoft.com/edge/download)
+- [Google Chrome](https://www.google.com/chrome/)
+- [Playwright for Python](https://playwright.dev/python/docs/browsers)
+- [Microsoft WinGet / App Installer](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
+
+---
+
+**NOVA Alpha 0.5 — Voice & Browser Expansion**
+*More natural interaction. More browser choice. More control over how NOVA listens and speaks.*

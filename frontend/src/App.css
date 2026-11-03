@@ -65,7 +65,7 @@ input {
 
   overflow: visible;
 
-  background: #dfe3da;
+  background: var(--nova-sidebar-bg, #dfe3da);
 
   padding: 43px 19px;
 
@@ -96,11 +96,11 @@ input {
 }
 
 .sidebar-curve-back {
-  fill: #cdd4ca;
+  fill: var(--nova-sidebar-curve-back, #cdd4ca);
 }
 
 .sidebar-curve-front {
-  fill: #bfc9c0;
+  fill: var(--nova-sidebar-curve-front, #bfc9c0);
 }
 
 
@@ -149,7 +149,7 @@ input {
   right: -5px;
   top: -5px;
 
-  background: #dfe3da;
+  background: var(--nova-sidebar-bg, #dfe3da);
 
   border-radius: 50%;
 }
@@ -237,7 +237,7 @@ input {
 }
 
 .nav-item.active {
-  background: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
 
   color: white;
 }
@@ -599,7 +599,7 @@ input {
 }
 
 .hero h1 span {
-  color: #5c7068;
+  color: var(--nova-accent-primary, #5c7068);
 
   font-weight: 500;
 }
@@ -654,7 +654,7 @@ input {
 
   border-radius: 50%;
 
-  background: #91aea1;
+  background: var(--nova-accent-highlight, #91aea1);
 
   color: #15201e;
 
@@ -718,7 +718,7 @@ input {
 
   border-radius: 50%;
 
-  background: #58776c;
+  background: var(--nova-accent-primary, #58776c);
 
   color: white;
 
@@ -734,7 +734,7 @@ input {
 .send-button:hover {
   transform: scale(1.04);
 
-  background: #4e6e63;
+  background: var(--nova-accent-hover, #4e6e63);
 }
 
 
@@ -1117,7 +1117,7 @@ input {
 }
 
 .app.dark-mode .nav-item.active {
-  background: #637f74;
+  background: var(--nova-accent-primary, #637f74);
   color: white;
 }
 
@@ -1161,7 +1161,7 @@ input {
 }
 
 .app.dark-mode .hero h1 span {
-  color: #9eb8aa;
+  color: var(--nova-accent-light, #9eb8aa);
 }
 
 .app.dark-mode .hero-description {
@@ -1189,7 +1189,7 @@ input {
 }
 
 .app.dark-mode .plus-button {
-  background: #718f82;
+  background: var(--nova-accent-primary, #718f82);
   color: #111917;
 }
 
@@ -1198,7 +1198,7 @@ input {
 }
 
 .app.dark-mode .send-button {
-  background: #668579;
+  background: var(--nova-accent-primary, #668579);
 }
 
 
@@ -1310,7 +1310,7 @@ input {
 }
 
 .app.dark-mode .backend-status.online .backend-dot {
-  background: #91aea1;
+  background: var(--nova-accent-highlight, #91aea1);
   box-shadow: 0 0 0 3px rgba(145,174,161,.12);
 }
 
@@ -1398,7 +1398,7 @@ input {
   border: 0;
   border-radius: 999px;
   padding: 10px 15px;
-  background: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
   color: #fff;
   font: inherit;
   font-size: 12px;
@@ -1432,7 +1432,7 @@ input {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
 }
 
 .placeholder-page {
@@ -1609,7 +1609,7 @@ input {
   border: 0;
   border-radius: 999px;
   padding: 13px 20px;
-  background: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
   color: white;
   font-size: 14px;
   cursor: pointer;
@@ -1762,7 +1762,7 @@ input {
 
 .conversation-message.user {
   align-self: flex-end;
-  background: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
   color: white;
   border-bottom-right-radius: 7px;
 }
@@ -1808,8 +1808,8 @@ input {
   place-items: center;
   margin-bottom: 18px;
   border-radius: 50%;
-  border: 3px solid #8ea99d;
-  color: #8ea99d;
+  border: 3px solid var(--nova-accent-light, #8ea99d);
+  color: var(--nova-accent-light, #8ea99d);
   font-size: 22px;
 }
 
@@ -1840,7 +1840,7 @@ input {
   margin-top: 45px;
   padding: 45px 34px;
   border-radius: 32px;
-  background: #dfe3da;
+  background: var(--nova-sidebar-bg, #dfe3da);
   color: #65756d;
   font-size: clamp(54px, 9vw, 126px);
   line-height: .9;
@@ -2465,7 +2465,7 @@ input {
 }
 
 .settings-name-input:focus {
-  border-color: #8ea99d;
+  border-color: var(--nova-accent-light, #8ea99d);
   box-shadow: 0 0 0 3px rgba(142,169,157,.15);
 }
 
@@ -2491,8 +2491,8 @@ input {
 }
 
 .settings-theme-options button.selected {
-  background: #8ea99d;
-  border-color: #8ea99d;
+  background: var(--nova-accent-light, #8ea99d);
+  border-color: var(--nova-accent-light, #8ea99d);
   color: white;
 }
 
@@ -2568,8 +2568,8 @@ input {
 }
 
 .app.dark-mode .settings-theme-options button.selected {
-  background: #718d80;
-  border-color: #718d80;
+  background: var(--nova-accent-primary, #718d80);
+  border-color: var(--nova-accent-primary, #718d80);
   color: white;
 }
 
@@ -3883,7 +3883,7 @@ html, body, #root {
   width: min(78%, 720px) !important;
   margin-left: auto !important;
   padding: 13px 17px !important;
-  background: #8ea99d !important;
+  background: var(--nova-accent-light, #8ea99d) !important;
   color: white !important;
   border-radius: 20px 20px 7px 20px !important;
 }
@@ -4044,7 +4044,7 @@ html, body, #root {
 /* ================================================= */
 .microphone.voice-listening {
   color: #ffffff;
-  background: #58776c;
+  background: var(--nova-accent-primary, #58776c);
   border-radius: 50%;
   box-shadow: 0 0 0 5px rgba(88, 119, 108, .16);
   animation: nova-voice-pulse 1.4s ease-in-out infinite;
@@ -4052,7 +4052,7 @@ html, body, #root {
 
 .app.dark-mode .microphone.voice-listening {
   color: #ffffff;
-  background: #668579;
+  background: var(--nova-accent-primary, #668579);
   box-shadow: 0 0 0 5px rgba(145, 174, 161, .18);
 }
 
@@ -4127,7 +4127,7 @@ html, body, #root {
 
 .chat-workspace .chat-task-box .microphone.voice-listening {
   color: #ffffff !important;
-  background: #58776c !important;
+  background: var(--nova-accent-primary, #58776c) !important;
   box-shadow: 0 0 0 5px rgba(88, 119, 108, .16) !important;
 }
 
@@ -4642,4 +4642,2990 @@ html, body, #root {
 }
 .chat-page.section-page > .chat-workspace .nova-live-activity.resizing {
   transition: none !important;
+}
+
+
+/* =========================================================
+   VOICE RECOGNITION MODE — NOVA SETTINGS
+   ========================================================= */
+.settings-voice-card {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-voice-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 8px;
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.settings-voice-option {
+  position: relative;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid rgba(45,55,52,.10);
+  border-radius: 12px;
+  background: rgba(247,246,242,.72);
+  color: #35403e;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+}
+
+.settings-voice-option:hover {
+  border-color: rgba(142,169,157,.7);
+  transform: translateY(-1px);
+}
+
+.settings-voice-option.selected {
+  background: var(--nova-accent-light, #8ea99d);
+  border-color: var(--nova-accent-light, #8ea99d);
+  color: #fff;
+}
+
+.settings-voice-option:focus-visible {
+  outline: 2px solid var(--nova-accent-primary, #718d80);
+  outline-offset: 3px;
+  z-index: 5;
+}
+
+/* Two-line helper appears on hover and keyboard focus. */
+.settings-voice-option::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  width: 248px;
+  max-width: min(248px, 72vw);
+  padding: 11px 13px;
+  border: 1px solid rgba(45,55,52,.12);
+  border-radius: 11px;
+  background: #fff;
+  color: #35403e;
+  box-shadow: 0 10px 28px rgba(20,28,24,.16);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, -3px);
+  transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
+  z-index: 50;
+}
+
+.settings-voice-option::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  border-top: 1px solid rgba(45,55,52,.12);
+  border-left: 1px solid rgba(45,55,52,.12);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) rotate(45deg);
+  z-index: 51;
+}
+
+.settings-voice-option:hover::after,
+.settings-voice-option:focus-visible::after,
+.settings-voice-option:hover::before,
+.settings-voice-option:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.settings-voice-option:hover::after,
+.settings-voice-option:focus-visible::after {
+  transform: translate(-50%, 0);
+}
+
+.app.dark-mode .settings-voice-option {
+  background: rgba(26,32,30,.78);
+  border-color: rgba(255,255,255,.09);
+  color: #e2e9e4;
+}
+
+.app.dark-mode .settings-voice-option.selected {
+  background: var(--nova-accent-primary, #718d80);
+  border-color: var(--nova-accent-primary, #718d80);
+  color: #fff;
+}
+
+.app.dark-mode .settings-voice-option::after {
+  background: #28312d;
+  border-color: rgba(255,255,255,.12);
+  color: #e2e9e4;
+}
+
+.app.dark-mode .settings-voice-option::before {
+  background: #28312d;
+  border-color: rgba(255,255,255,.12);
+}
+
+@media (max-width: 700px) {
+  .settings-voice-options {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settings-voice-option {
+    padding: 0 7px;
+    white-space: normal;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 430px) {
+  .settings-voice-options {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-voice-option {
+    min-height: 40px;
+  }
+
+  .settings-voice-option::after {
+    left: 0;
+    transform: translate(0, -3px);
+  }
+
+  .settings-voice-option:hover::after,
+  .settings-voice-option:focus-visible::after {
+    transform: translate(0, 0);
+  }
+}
+
+
+/* =========================================================
+   SETTINGS PAGE — COMPACT HEADING + SETTINGS-ONLY SCROLL
+   Scoped to .settings-page so Home, Chat, and other tabs keep
+   their existing viewport and scrolling behaviour.
+   ========================================================= */
+.main > .settings-page {
+  height: calc(100vh - 26px);
+  max-height: calc(100vh - 26px);
+  min-height: 0;
+  margin: 26px 0 0 72px;
+  padding: 18px 46px 38px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 119, 108, .48) transparent;
+}
+
+.main > .settings-page > .eyebrow {
+  margin: 0 0 6px;
+  font-size: 9px;
+  line-height: 1.4;
+  letter-spacing: .16em;
+}
+
+.main > .settings-page > h1 {
+  margin: 0 0 20px;
+  font-size: clamp(30px, 3vw, 38px);
+  line-height: 1.08;
+  font-weight: 500;
+  letter-spacing: -1.4px;
+}
+
+.main > .settings-page .settings-panel {
+  gap: 12px;
+}
+
+.main > .settings-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.main > .settings-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main > .settings-page::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(100, 119, 108, .42);
+  background-clip: padding-box;
+}
+
+.main > .settings-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 119, 108, .68);
+  background-clip: padding-box;
+}
+
+.app.dark-mode .main > .settings-page {
+  scrollbar-color: rgba(174, 190, 180, .42) transparent;
+}
+
+.app.dark-mode .main > .settings-page::-webkit-scrollbar-thumb {
+  background: rgba(174, 190, 180, .38);
+  background-clip: padding-box;
+}
+
+@media (max-width: 700px) {
+  .main > .settings-page {
+    width: calc(100% - 28px);
+    height: calc(100vh - 12px);
+    max-height: calc(100vh - 12px);
+    margin: 12px 0 0 14px;
+    padding: 14px 14px 30px;
+  }
+
+  .main > .settings-page > h1 {
+    margin-bottom: 16px;
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+}
+
+/* =========================================================
+   HOME VISUAL CONTINUATION
+   Extend the existing hero photograph and organic overlay to
+   the full viewport so the Home page has no abrupt white cutoff.
+   These elements are rendered only on Home, so other tabs are
+   intentionally unaffected.
+   ========================================================= */
+.main > .hero-image {
+  top: 0;
+  left: 0;
+  right: 0;
+  width: auto !important;
+  height: 100vh !important;
+  min-height: 100vh;
+  opacity: 1;
+}
+
+.main > .hero-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  object-fit: cover;
+  object-position: 56% center;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.main > .organic-main {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh !important;
+  min-height: 100vh;
+}
+
+
+/* NOVA final-answer links (including Research Agent sources). */
+.chat-workspace .conversation-message a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.chat-workspace .conversation-message a:hover {
+  opacity: 0.78;
+}
+
+
+/* =========================================================
+   NOVA UI POLISH — ACCENT THEMES, COMPOSER AND CHAT RHYTHM
+   ========================================================= */
+
+.app .sidebar {
+  background: var(--nova-sidebar-bg, #dfe3da) !important;
+}
+.app .sidebar-curve-back {
+  fill: var(--nova-sidebar-curve-back, #cdd4ca) !important;
+}
+.app .sidebar-curve-front {
+  fill: var(--nova-sidebar-curve-front, #bfc9c0) !important;
+}
+.app .nav-item.active {
+  background: var(--nova-accent-light, #8ea99d) !important;
+  color: #fff !important;
+}
+.app.dark-mode .nav-item.active {
+  background: var(--nova-accent-primary, #58776c) !important;
+}
+.app .hero h1 span,
+.app .conversation-empty-mark {
+  color: var(--nova-accent-primary, #58776c);
+}
+.app .conversation-empty-mark {
+  border-color: var(--nova-accent-light, #8ea99d);
+}
+.app .send-button {
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  text-align: center !important;
+  background: var(--nova-accent-primary, #58776c) !important;
+  color: #fff !important;
+}
+.app .send-button:hover {
+  background: var(--nova-accent-hover, #4e6e63) !important;
+}
+.app .send-button svg {
+  display: block;
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  margin: 0;
+  transform: translate(0, 0);
+}
+.app .send-button[aria-label^="Stop"] svg,
+.app .send-button[aria-label^="Close"] svg {
+  width: 19px;
+  height: 19px;
+}
+.app.dark-mode .send-button {
+  background: var(--nova-accent-primary, #58776c) !important;
+}
+.app .new-chat-button,
+.app .account-connect,
+.app .settings-theme-options button.selected,
+.app .settings-voice-option.selected {
+  background: var(--nova-accent-light, #8ea99d) !important;
+  border-color: var(--nova-accent-light, #8ea99d) !important;
+  color: #fff !important;
+}
+.app.dark-mode .settings-theme-options button.selected,
+.app.dark-mode .settings-voice-option.selected {
+  background: var(--nova-accent-primary, #58776c) !important;
+  border-color: var(--nova-accent-primary, #58776c) !important;
+}
+.app .conversation-message.user {
+  background: var(--nova-accent-light, #8ea99d) !important;
+}
+.app .profile-inline-settings.active,
+.app .profile-settings-icon.active {
+  color: var(--nova-accent-primary, #58776c) !important;
+}
+.app .settings-name-input:focus {
+  border-color: var(--nova-accent-light, #8ea99d) !important;
+  box-shadow: 0 0 0 3px var(--nova-accent-soft, #e5ece7) !important;
+}
+
+/* A compact, genuinely centred send/stop control on both composers. */
+.task-box .send-button,
+.chat-workspace .chat-task-box .send-button {
+  width: 54px !important;
+  height: 54px !important;
+  min-width: 54px !important;
+  min-height: 54px !important;
+  border-radius: 50% !important;
+}
+
+/* Speech mode replaces the ordinary input row with an audio-led capture panel. */
+.task-box.voice-active {
+  height: 76px !important;
+  min-height: 76px !important;
+  padding: 7px 9px 7px 20px !important;
+  gap: 12px !important;
+  border-color: color-mix(in srgb, var(--nova-accent-primary) 24%, transparent) !important;
+}
+.chat-workspace .chat-task-box.voice-active {
+  height: 76px !important;
+  min-height: 76px !important;
+  padding: 7px 9px 7px 18px !important;
+}
+.voice-capture {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(165px, 1.05fr) minmax(110px, 1.5fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+.voice-capture-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+.voice-capture-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #293431;
+  line-height: 1;
+}
+.app.dark-mode .voice-capture-title-row {
+  color: #edf2ee;
+}
+.voice-capture-title-row strong {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+.voice-capture-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--nova-accent-primary, #58776c);
+  box-shadow: 0 0 0 4px var(--nova-accent-soft, #e5ece7);
+  animation: nova-recording-dot 1.5s ease-in-out infinite;
+}
+.voice-capture-mode {
+  margin-left: 2px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--nova-accent-soft, #e5ece7);
+  color: var(--nova-accent-primary, #58776c);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: .09em;
+  white-space: nowrap;
+}
+.voice-capture-transcript {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #75807a;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app.dark-mode .voice-capture-transcript {
+  color: #aeb9b2;
+}
+.voice-capture-waveform {
+  width: 100%;
+  min-width: 70px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.voice-capture-bar {
+  display: block;
+  width: 3px;
+  min-width: 2px;
+  max-height: 30px;
+  border-radius: 999px;
+  background: var(--nova-accent-primary, #58776c);
+  opacity: .88;
+  transition: height 80ms linear, opacity 80ms linear;
+}
+.voice-finish-button {
+  min-width: 58px;
+  height: 38px;
+  padding: 0 15px;
+  border: 1px solid color-mix(in srgb, var(--nova-accent-primary) 18%, transparent);
+  border-radius: 999px;
+  background: var(--nova-accent-soft, #e5ece7);
+  color: var(--nova-accent-primary, #58776c);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease;
+}
+.voice-finish-button:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--nova-accent-light) 28%, white);
+}
+.voice-transcribing {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-left: 16px;
+  color: #68756e;
+  font-size: 12px;
+  font-weight: 550;
+}
+.app.dark-mode .voice-transcribing {
+  color: #c2cbc5;
+}
+.voice-transcribing-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid var(--nova-accent-soft, #e5ece7);
+  border-top-color: var(--nova-accent-primary, #58776c);
+  border-radius: 50%;
+  animation: nova-spin .75s linear infinite;
+}
+@keyframes nova-spin { to { transform: rotate(360deg); } }
+@keyframes nova-recording-dot {
+  0%, 100% { box-shadow: 0 0 0 3px var(--nova-accent-soft, #e5ece7); opacity: 1; }
+  50% { box-shadow: 0 0 0 6px var(--nova-accent-soft, #e5ece7); opacity: .72; }
+}
+.voice-feedback {
+  width: min(calc(100% - 4px), 1120px);
+  margin: 9px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #66746d;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.voice-feedback-mark {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--nova-accent-soft, #e5ece7);
+  color: var(--nova-accent-primary, #58776c);
+  font-size: 10px;
+  font-weight: 800;
+}
+.voice-feedback.error .voice-feedback-mark {
+  background: rgba(181, 88, 76, .12);
+  color: #a44f45;
+}
+.app.dark-mode .voice-feedback { color: #aeb9b2; }
+.app.dark-mode .voice-feedback-mark { background: var(--nova-accent-soft, #e5ece7); color: var(--nova-accent-primary, #58776c); }
+
+/* Give chat messages breathing room instead of stretching bubbles to the edge. */
+.chat-workspace .conversation-message.user {
+  width: fit-content !important;
+  max-width: 70% !important;
+  overflow-wrap: anywhere;
+}
+.chat-workspace .conversation-message.nova {
+  max-width: min(78%, 860px) !important;
+  overflow-wrap: anywhere;
+}
+.chat-workspace .conversation-message p {
+  overflow-wrap: anywhere;
+}
+
+/* The response is the content; no repeated assistant identity label above each bubble. */
+.conversation-role { display: none !important; }
+
+/* Seven-colour picker in Settings. */
+.settings-accent-card {
+  align-items: flex-start !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+.accent-theme-options {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.accent-theme-option {
+  min-width: 0;
+  min-height: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 5px;
+  border: 1px solid rgba(45,55,52,.09);
+  border-radius: 13px;
+  background: rgba(247,246,242,.64);
+  color: #58635d;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.accent-theme-option:hover { transform: translateY(-2px); }
+.accent-theme-option.selected {
+  border-color: var(--swatch-color);
+  background: var(--nova-accent-soft, #e5ece7);
+  color: #26332e;
+  box-shadow: inset 0 0 0 1px var(--swatch-color);
+}
+.accent-theme-swatch {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.35);
+}
+.accent-theme-name {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.app.dark-mode .accent-theme-option {
+  border-color: rgba(255,255,255,.09);
+  background: rgba(255,255,255,.035);
+  color: #c0c9c3;
+}
+.app.dark-mode .accent-theme-option.selected {
+  border-color: var(--swatch-color);
+  background: rgba(255,255,255,.07);
+  color: #f0f3f0;
+}
+
+@media (max-width: 900px) {
+  .accent-theme-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .voice-capture { grid-template-columns: minmax(130px, 1fr) minmax(72px, 1fr) auto; gap: 10px; }
+  .voice-capture-transcript { max-width: 35vw; }
+}
+@media (max-width: 620px) {
+  .task-box.voice-active,
+  .chat-workspace .chat-task-box.voice-active {
+    height: 84px !important;
+    min-height: 84px !important;
+    padding: 8px 9px 8px 12px !important;
+  }
+  .voice-capture { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .voice-capture-waveform { grid-column: 1 / 2; grid-row: 2; justify-content: flex-start; height: 20px; }
+  .voice-capture-copy { grid-column: 1 / 2; grid-row: 1; }
+  .voice-capture-transcript { max-width: 65vw; }
+  .voice-finish-button { grid-column: 2; grid-row: 1 / span 2; }
+  .chat-workspace .conversation-message.user { max-width: 88% !important; }
+  .chat-workspace .conversation-message.nova { max-width: 92% !important; }
+}
+@media (max-width: 430px) {
+  .accent-theme-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .voice-capture-mode { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-capture-dot,
+  .voice-transcribing-spinner { animation: none; }
+}
+
+
+/* Accent colours remain visible in dark mode without flattening the dark surface. */
+.app.dark-mode .sidebar {
+  background: color-mix(in srgb, var(--nova-accent-primary) 22%, #202624) !important;
+}
+.app.dark-mode .sidebar-curve-back {
+  fill: color-mix(in srgb, var(--nova-accent-primary) 20%, #252d2a) !important;
+}
+.app.dark-mode .sidebar-curve-front {
+  fill: color-mix(in srgb, var(--nova-accent-primary) 28%, #252d2a) !important;
+}
+.app.dark-mode .conversation-message.user {
+  background: var(--nova-accent-primary, #58776c) !important;
+}
+.app.dark-mode .conversation-empty-mark {
+  color: var(--nova-accent-light, #8ea99d) !important;
+  border-color: var(--nova-accent-light, #8ea99d) !important;
+}
+
+/* =========================================================
+   Phase 4 — runtime and agent system visibility
+   ========================================================= */
+.settings-runtime-card,
+.settings-agents-card {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-runtime-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.settings-runtime-stat {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid rgba(45, 55, 52, .08);
+  border-radius: 13px;
+  background: rgba(247, 246, 242, .62);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-runtime-stat > span {
+  color: #7a8580;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.settings-runtime-stat > strong {
+  color: #26312d;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.settings-runtime-stat > strong.runtime-good {
+  color: #47745a;
+}
+
+.settings-runtime-stat > strong.runtime-muted {
+  color: #9a6e43;
+}
+
+.settings-agent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.settings-agent-item {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid rgba(45, 55, 52, .08);
+  border-radius: 13px;
+  background: rgba(247, 246, 242, .62);
+}
+
+.settings-agent-indicator {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #6f9c7d;
+  box-shadow: 0 0 0 3px rgba(111, 156, 125, .13);
+}
+
+.settings-agent-item > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-agent-item strong {
+  color: #26312d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-agent-item span:not(.settings-agent-indicator) {
+  color: #74807a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.settings-agent-item small {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(111, 156, 125, .12);
+  color: #557b61;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.settings-agent-empty {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 1px dashed rgba(45, 55, 52, .16);
+  border-radius: 13px;
+}
+
+.settings-release-card {
+  min-height: 90px;
+}
+
+.app.dark-mode .settings-runtime-stat,
+.app.dark-mode .settings-agent-item {
+  background: rgba(24, 30, 28, .65);
+  border-color: rgba(255, 255, 255, .07);
+}
+
+.app.dark-mode .settings-runtime-stat > span {
+  color: #9eaaa3;
+}
+
+.app.dark-mode .settings-runtime-stat > strong,
+.app.dark-mode .settings-agent-item strong {
+  color: #e4ebe6;
+}
+
+.app.dark-mode .settings-runtime-stat > strong.runtime-good {
+  color: #91c6a0;
+}
+
+.app.dark-mode .settings-runtime-stat > strong.runtime-muted {
+  color: #d7ab7b;
+}
+
+.app.dark-mode .settings-agent-item span:not(.settings-agent-indicator),
+.app.dark-mode .settings-agent-empty {
+  color: #a5b0a9;
+}
+
+.app.dark-mode .settings-agent-item small {
+  background: rgba(145, 198, 160, .12);
+  color: #a4d2b0;
+}
+
+@media (max-width: 900px) {
+  .settings-runtime-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .settings-runtime-grid,
+  .settings-agent-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-agent-item {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+  }
+}
+
+/* NOVA Alpha 0.5 — live task feedback and clearer chat send control. */
+.chat-workspace .activity-toggle {
+  justify-content: flex-start !important;
+}
+
+.chat-workspace .activity-live-dot {
+  display: inline-block !important;
+  flex: 0 0 8px !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #91a39a !important;
+  box-shadow: 0 0 0 4px rgba(145, 163, 154, .12) !important;
+}
+
+.chat-workspace .activity-live-dot.active {
+  background: #4f9b72 !important;
+  box-shadow: 0 0 0 4px rgba(79, 155, 114, .13) !important;
+  animation: nova-activity-pulse 1.6s ease-in-out infinite !important;
+}
+
+@keyframes nova-activity-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(79, 155, 114, .13); }
+  50% { box-shadow: 0 0 0 7px rgba(79, 155, 114, .05); }
+}
+
+.chat-workspace .activity-toggle-copy {
+  flex: 1 1 auto !important;
+  align-items: center !important;
+  min-width: 0 !important;
+}
+
+.chat-workspace .activity-toggle-title {
+  color: var(--nova-accent-primary, #58776c) !important;
+}
+
+.chat-workspace .activity-toggle-status {
+  flex: 1 1 auto !important;
+}
+
+.app.dark-mode .chat-workspace .activity-toggle-title {
+  color: #b9d1c4 !important;
+}
+
+/* The chat send affordance is slightly larger and easier to target. */
+.app .chat-workspace .chat-task-box .send-button {
+  width: 58px !important;
+  height: 58px !important;
+  min-width: 58px !important;
+  min-height: 58px !important;
+  flex: 0 0 58px !important;
+  border-radius: 18px !important;
+}
+
+.app .chat-workspace .chat-task-box .send-button svg {
+  width: 27px !important;
+  height: 27px !important;
+}
+
+.app .send-button:disabled {
+  cursor: wait !important;
+  opacity: .78 !important;
+  transform: none !important;
+}
+
+.send-spinner {
+  display: block;
+  width: 21px;
+  height: 21px;
+  border: 2px solid rgba(255, 255, 255, .38);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: nova-send-spin .75s linear infinite;
+}
+
+@keyframes nova-send-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+  .chat-workspace .activity-toggle-copy {
+    gap: 7px !important;
+  }
+
+  .chat-workspace .activity-toggle-title {
+    font-size: 9px !important;
+  }
+
+  .chat-workspace .activity-toggle-status {
+    font-size: 10px !important;
+  }
+}
+
+
+/* NOVA Alpha 0.5 — activity dock alignment and user visibility preference.
+   Keep the activity controls to the far side of the chat content, with a
+   deliberate gutter from both the sidebar and the viewport edge. */
+.chat-page.section-page > .chat-workspace .nova-live-activity {
+  box-sizing: border-box !important;
+  align-self: flex-end !important;
+  width: min(620px, calc(100% - 40px)) !important;
+  max-width: min(620px, calc(100% - 40px)) !important;
+  min-width: 0 !important;
+  margin: 0 clamp(18px, 2.6vw, 38px) 8px 18px !important;
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+  width: fit-content !important;
+  max-width: min(540px, calc(100% - 40px)) !important;
+  align-self: flex-end !important;
+  margin-left: auto !important;
+  margin-right: clamp(18px, 2.6vw, 38px) !important;
+  padding-right: 31px !important;
+}
+
+.chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+  width: min(620px, calc(100% - 40px)) !important;
+  max-width: min(620px, calc(100% - 40px)) !important;
+  align-self: flex-end !important;
+  margin-left: 18px !important;
+  margin-right: clamp(18px, 2.6vw, 38px) !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-toggle {
+  padding-right: 12px !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-hide-button {
+  position: absolute !important;
+  top: 5px !important;
+  right: 6px !important;
+  z-index: 4 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 25px !important;
+  height: 25px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #718078 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-hide-button:hover {
+  background: rgba(142, 169, 157, .16) !important;
+  color: #33403b !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-restore-button {
+  order: 2 !important;
+  flex: 0 0 auto !important;
+  align-self: flex-end !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  min-height: 32px !important;
+  max-width: calc(100% - 40px) !important;
+  margin: 0 clamp(18px, 2.6vw, 38px) 8px 18px !important;
+  padding: 6px 12px !important;
+  border: 1px solid rgba(39, 48, 51, .10) !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, .76) !important;
+  color: #607168 !important;
+  box-shadow: 0 4px 14px rgba(39, 48, 51, .04) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  cursor: pointer !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-restore-button:hover {
+  background: #fff !important;
+  border-color: rgba(88, 119, 108, .28) !important;
+  color: #334b40 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-hide-button {
+  color: #aab9b0 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-hide-button:hover {
+  background: rgba(255, 255, 255, .09) !important;
+  color: #eef4ef !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-restore-button {
+  border-color: rgba(255, 255, 255, .12) !important;
+  background: rgba(31, 35, 33, .86) !important;
+  color: #c1d0c7 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-restore-button:hover {
+  background: rgba(43, 51, 47, .96) !important;
+  color: #f0f5f1 !important;
+}
+
+@media (max-width: 720px) {
+  .chat-page.section-page > .chat-workspace .nova-live-activity,
+  .chat-page.section-page > .chat-workspace .nova-live-activity.expanded {
+    width: calc(100% - 28px) !important;
+    max-width: calc(100% - 28px) !important;
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+  }
+
+  .chat-page.section-page > .chat-workspace .nova-live-activity.collapsed {
+    width: fit-content !important;
+    max-width: calc(100% - 28px) !important;
+    margin-left: auto !important;
+    margin-right: 14px !important;
+  }
+
+  .chat-page.section-page > .chat-workspace .activity-restore-button {
+    max-width: calc(100% - 28px) !important;
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+  }
+}
+
+/* NOVA Alpha 0.5 — compact, left-aligned status strip (no expand panel). */
+.chat-page.section-page > .chat-workspace .nova-live-activity.compact {
+  position: relative !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  align-self: flex-start !important;
+  gap: 12px !important;
+  width: min(520px, calc(100% - 64px)) !important;
+  max-width: 520px !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  margin: 0 0 10px clamp(16px, 2.4vw, 38px) !important;
+  padding: 10px 42px 10px 14px !important;
+  border: 1px solid rgba(70, 93, 81, .13) !important;
+  border-radius: 12px !important;
+  background: rgba(246, 249, 245, .86) !important;
+  box-shadow: 0 3px 12px rgba(39, 48, 51, .035) !important;
+  overflow: hidden !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-status-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-status-label {
+  color: #718478 !important;
+  font-size: 9px !important;
+  font-weight: 750 !important;
+  letter-spacing: .14em !important;
+  line-height: 1.1 !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-status-message {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #405148 !important;
+  font-size: 11px !important;
+  font-weight: 550 !important;
+  line-height: 1.35 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-hide-button {
+  position: absolute !important;
+  top: 50% !important;
+  right: 8px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 25px !important;
+  height: 25px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: #718078 !important;
+  font-size: 21px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  transform: translateY(-50%) !important;
+  cursor: pointer !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-hide-button:hover {
+  background: rgba(112, 137, 120, .12) !important;
+  color: #34483c !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-restore-button {
+  position: relative !important;
+  align-self: flex-start !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  min-height: 34px !important;
+  width: auto !important;
+  max-width: calc(100% - 32px) !important;
+  margin: 0 0 10px clamp(16px, 2.4vw, 38px) !important;
+  padding: 6px 12px !important;
+  border: 1px solid rgba(70, 93, 81, .13) !important;
+  border-radius: 10px !important;
+  background: rgba(246, 249, 245, .86) !important;
+  color: #52675b !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  box-shadow: 0 3px 12px rgba(39, 48, 51, .035) !important;
+  cursor: pointer !important;
+}
+
+.chat-page.section-page > .chat-workspace .activity-restore-button:hover {
+  background: #fff !important;
+  border-color: rgba(88, 119, 108, .27) !important;
+  color: #334b40 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .nova-live-activity.compact {
+  border-color: rgba(255, 255, 255, .11) !important;
+  background: rgba(35, 42, 38, .82) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .14) !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-status-label {
+  color: #a6b9ac !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-status-message {
+  color: #d4e0d7 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-hide-button {
+  color: #b5c5ba !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-hide-button:hover {
+  background: rgba(255, 255, 255, .09) !important;
+  color: #f0f5f1 !important;
+}
+
+.app.dark-mode .chat-page.section-page > .chat-workspace .activity-restore-button {
+  border-color: rgba(255, 255, 255, .11) !important;
+  background: rgba(35, 42, 38, .82) !important;
+  color: #c6d5cb !important;
+}
+
+@media (max-width: 720px) {
+  .chat-page.section-page > .chat-workspace .nova-live-activity.compact {
+    width: calc(100% - 28px) !important;
+    max-width: none !important;
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+  }
+
+  .chat-page.section-page > .chat-workspace .activity-restore-button {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+  }
+}
+
+
+/* =========================================================
+   NOVA PROFILE FOOTER — SEPARATE SETTINGS GEAR
+   ========================================================= */
+.sidebar-bottom .sidebar-profile-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 6px 8px !important;
+  border-radius: 13px !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button:hover,
+.sidebar-bottom .sidebar-settings-profile-button[aria-expanded="true"] {
+  background: rgba(255,255,255,.34) !important;
+}
+.sidebar-settings-profile-button .profile-inline-settings {
+  display: none !important;
+}
+.sidebar-profile-settings-button {
+  flex: 0 0 46px !important;
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(255,255,255,.28) !important;
+  color: #35403e !important;
+  cursor: pointer !important;
+  transition: background .16s ease, transform .16s ease, color .16s ease !important;
+}
+.sidebar-profile-settings-button svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+.sidebar-profile-settings-button:hover,
+.sidebar-profile-settings-button.active {
+  background: rgba(255,255,255,.52) !important;
+  color: var(--nova-accent-primary, #58776c) !important;
+}
+.sidebar-profile-settings-button:hover {
+  transform: translateY(-1px) !important;
+}
+.app.dark-mode .sidebar-profile-settings-button {
+  background: rgba(255,255,255,.07) !important;
+  color: #dfe7e2 !important;
+}
+.app.dark-mode .sidebar-profile-settings-button:hover,
+.app.dark-mode .sidebar-profile-settings-button.active {
+  background: rgba(255,255,255,.13) !important;
+  color: var(--nova-accent-light, #8ea99d) !important;
+}
+.sidebar.collapsed .sidebar-bottom .sidebar-profile-row {
+  width: 52px !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  margin: 0 auto !important;
+}
+.sidebar.collapsed .sidebar-profile-settings-button {
+  display: none !important;
+}
+.sidebar.collapsed .sidebar-bottom .sidebar-settings-profile-button {
+  flex: 0 0 52px !important;
+  width: 52px !important;
+  min-width: 52px !important;
+  max-width: 52px !important;
+  justify-content: center !important;
+  padding: 6px !important;
+  gap: 0 !important;
+}
+.sidebar.compact .sidebar-profile-name {
+  display: none !important;
+}
+.sidebar.compact .sidebar-profile-settings-button {
+  display: grid !important;
+}
+
+/* Settings voice options keep their explanatory CSS helper only. */
+.settings-voice-option::after,
+.settings-voice-option::before {
+  pointer-events: none;
+}
+
+
+/* NOVA footer: one unified profile-and-settings button. */
+.sidebar-bottom .profile-wrap,
+.sidebar-bottom .sidebar-profile-row {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.sidebar-bottom .sidebar-profile-row {
+  display: block !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 54px !important;
+  height: 54px !important;
+  padding: 6px 10px 6px 8px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+  background: rgba(255,255,255,.24) !important;
+  color: #182022 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  transition: background .16s ease, color .16s ease !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button:hover,
+.sidebar-bottom .sidebar-settings-profile-button.active {
+  background: rgba(255,255,255,.42) !important;
+  color: var(--nova-accent-primary, #58776c) !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button .sidebar-profile-avatar {
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+.sidebar-bottom .sidebar-settings-profile-button .sidebar-profile-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.sidebar-profile-inline-gear {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: .9;
+}
+.sidebar-profile-inline-gear svg {
+  width: 22px !important;
+  height: 22px !important;
+}
+.app.dark-mode .sidebar-bottom .sidebar-settings-profile-button {
+  background: rgba(255,255,255,.07) !important;
+  color: #dfe7e2 !important;
+}
+.app.dark-mode .sidebar-bottom .sidebar-settings-profile-button:hover,
+.app.dark-mode .sidebar-bottom .sidebar-settings-profile-button.active {
+  background: rgba(255,255,255,.14) !important;
+  color: var(--nova-accent-light, #8ea99d) !important;
+}
+.sidebar.collapsed .sidebar-bottom .sidebar-profile-row {
+  width: 52px !important;
+  margin: 0 auto !important;
+}
+.sidebar.collapsed .sidebar-bottom .sidebar-settings-profile-button {
+  width: 52px !important;
+  min-width: 52px !important;
+  max-width: 52px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 6px !important;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+.sidebar.collapsed .sidebar-profile-inline-gear,
+.sidebar.collapsed .sidebar-settings-profile-button .sidebar-profile-name {
+  display: none !important;
+}
+.sidebar.compact .sidebar-profile-name,
+.sidebar.compact .sidebar-profile-inline-gear {
+  display: none !important;
+}
+
+
+/* =========================================================
+   NOVA FULL-SCREEN VOICE ROOM — PHASE 1 UI
+   Theme follows the global Light / Dark / System preference.
+   Orb colour follows the active NOVA accent palette.
+   ========================================================= */
+.nova-voice-room {
+  --voice-accent: color-mix(in srgb, var(--nova-accent-primary, #58776c) 66%, #ffffff);
+  --voice-accent-ink: var(--nova-accent-primary, #58776c);
+  --voice-accent-light: color-mix(in srgb, var(--nova-accent-light, #a4b9ae) 76%, #ffffff);
+  --voice-accent-highlight: color-mix(in srgb, var(--nova-accent-highlight, #b2c7bc) 76%, #ffffff);
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(22px, env(safe-area-inset-top)) clamp(22px, 5vw, 72px) max(22px, env(safe-area-inset-bottom));
+  animation: nova-voice-room-enter .36s cubic-bezier(.2,.75,.2,1) both;
+}
+
+.nova-voice-room[data-theme="light"] {
+  --voice-bg: #fcfcfd;
+  --voice-text: #17191d;
+  --voice-muted: rgba(23, 27, 32, .52);
+  --voice-line: rgba(25, 31, 37, .14);
+  --voice-button-bg: rgba(255, 255, 255, .82);
+  --voice-button-hover: #ffffff;
+  --voice-button-shadow: 0 5px 22px rgba(20, 25, 30, .045);
+  --voice-caption-bg: rgba(255, 255, 255, .76);
+  color: var(--voice-text);
+  background:
+    radial-gradient(ellipse at 50% 48%, color-mix(in srgb, var(--voice-accent-light) 7%, transparent), transparent 36%),
+    #fcfcfd;
+}
+
+.nova-voice-room[data-theme="dark"] {
+  --voice-bg: #080a0e;
+  --voice-text: #f5f6f8;
+  --voice-muted: rgba(238, 242, 246, .56);
+  --voice-line: rgba(238, 244, 250, .15);
+  --voice-button-bg: rgba(255, 255, 255, .065);
+  --voice-button-hover: rgba(255, 255, 255, .12);
+  --voice-button-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+  --voice-caption-bg: rgba(255, 255, 255, .055);
+  color: var(--voice-text);
+  background:
+    radial-gradient(ellipse at 50% 48%, color-mix(in srgb, var(--voice-accent) 8%, transparent), transparent 37%),
+    #080a0e;
+}
+
+.nova-voice-room-header {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 46px;
+  flex: 0 0 auto;
+}
+
+.nova-voice-room-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--voice-text);
+}
+
+/* Reuse the same NOVA logo mark used in the sidebar. */
+.nova-voice-room .nova-logo {
+  position: relative;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border: 3.5px solid var(--voice-text);
+  border-radius: 50%;
+}
+
+.nova-voice-room .nova-logo::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--voice-bg);
+}
+
+.nova-voice-room .nova-logo span {
+  position: absolute;
+  top: 6px;
+  right: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--voice-text);
+}
+
+.nova-voice-brand-name {
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: .24em;
+  line-height: 1;
+}
+
+.nova-voice-room-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 20px 0;
+}
+
+.nova-voice-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(38vw, 280px);
+  min-width: 205px;
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+.nova-mercury-orb {
+  display: block;
+  flex: 0 0 auto;
+  transform: scale(.96);
+  transform-origin: center;
+}
+
+.nova-voice-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 13px;
+  color: var(--voice-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  min-height: 18px;
+  text-align: center;
+}
+
+.nova-voice-room[data-voice-state="listening"] .nova-voice-status-dot {
+  animation-duration: .82s;
+  box-shadow: 0 0 15px var(--voice-accent);
+}
+
+.nova-voice-room[data-voice-state="unavailable"] .nova-voice-status-dot {
+  background: #d39a53;
+  box-shadow: 0 0 10px rgba(211,154,83,.45);
+}
+
+.nova-voice-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--voice-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--voice-accent) 34%, transparent);
+  animation: nova-voice-status-pulse 2.4s ease-in-out infinite;
+}
+
+.nova-voice-captions-panel {
+  width: min(86vw, 440px);
+  margin-top: 18px;
+  padding: 13px 17px 14px;
+  border: 1px solid var(--voice-line);
+  border-radius: 16px;
+  background: var(--voice-caption-bg);
+  box-shadow: var(--voice-button-shadow);
+  text-align: center;
+  animation: nova-voice-menu-enter .18s ease both;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.nova-voice-captions-label {
+  color: var(--voice-accent-ink);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .18em;
+}
+
+.nova-voice-captions-panel p {
+  margin: 6px 0 0;
+  color: var(--voice-muted);
+  font-size: 12px;
+}
+
+.nova-voice-room-footer {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.nova-voice-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3.5vw, 28px);
+}
+
+.nova-voice-round-control,
+.nova-voice-end-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 1px solid var(--voice-line);
+  border-radius: 50%;
+  color: var(--voice-text);
+  background: var(--voice-button-bg);
+  box-shadow: var(--voice-button-shadow);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.nova-voice-round-control:hover,
+.nova-voice-end-button:hover {
+  transform: translateY(-2px);
+  background: var(--voice-button-hover);
+  border-color: color-mix(in srgb, var(--voice-accent) 26%, var(--voice-line));
+}
+
+.nova-voice-mic-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+.nova-voice-mic-icon i {
+  position: absolute;
+  width: 28px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(48deg);
+  box-shadow: 0 0 0 1px var(--voice-bg);
+}
+
+.nova-voice-mute-button.is-off {
+  color: #d35e67;
+  border-color: color-mix(in srgb, #d35e67 42%, var(--voice-line));
+  background: color-mix(in srgb, #d35e67 8%, var(--voice-button-bg));
+}
+
+.nova-voice-end-button {
+  width: 68px;
+  height: 68px;
+  border: 1px solid transparent;
+  color: #fff;
+  background: #111216;
+  box-shadow: 0 7px 25px rgba(0,0,0,.16);
+}
+
+.nova-voice-room[data-theme="dark"] .nova-voice-end-button {
+  color: #15171b;
+  background: #f3f4f6;
+  box-shadow: 0 7px 25px rgba(0,0,0,.28);
+}
+
+.nova-voice-end-button:hover {
+  color: #fff;
+  background: #292b31;
+  border-color: transparent;
+}
+
+.nova-voice-room[data-theme="dark"] .nova-voice-end-button:hover {
+  color: #111216;
+  background: #ffffff;
+}
+
+.nova-voice-end-icon {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.nova-voice-end-icon::before,
+.nova-voice-end-icon::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 2px;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.nova-voice-end-icon::before { transform: rotate(45deg); }
+.nova-voice-end-icon::after { transform: rotate(-45deg); }
+
+.nova-voice-captions-button.is-active {
+  color: var(--voice-accent-ink);
+  border-color: color-mix(in srgb, var(--voice-accent) 30%, var(--voice-line));
+  background: color-mix(in srgb, var(--voice-accent) 11%, var(--voice-button-bg));
+}
+
+@keyframes nova-voice-room-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes nova-voice-menu-enter {
+  from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes nova-voice-status-pulse {
+  0%, 100% { opacity: .58; box-shadow: 0 0 5px var(--voice-accent); }
+  50% { opacity: 1; box-shadow: 0 0 13px var(--voice-accent); }
+}
+
+@media (max-width: 680px) {
+  .nova-voice-room {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .nova-voice-visual {
+    width: min(58vw, 235px);
+    min-width: 185px;
+  }
+
+  .nova-mercury-orb { transform: scale(.88); }
+  .nova-voice-controls { gap: clamp(18px, 6vw, 27px); }
+  .nova-voice-round-control { width: 58px; height: 58px; }
+  .nova-voice-end-button { width: 66px; height: 66px; }
+}
+
+@media (max-width: 380px) {
+  .nova-voice-room { padding-right: 15px; padding-left: 15px; }
+  .nova-voice-visual { width: min(62vw, 220px); min-width: 180px; }
+  .nova-mercury-orb { transform: scale(.82); }
+  .nova-voice-controls { gap: 14px; }
+  .nova-voice-round-control { width: 54px; height: 54px; }
+  .nova-voice-end-button { width: 62px; height: 62px; }
+}
+
+@media (max-height: 680px) {
+  .nova-voice-room-content { padding-top: 8px; padding-bottom: 8px; }
+  .nova-voice-visual { width: min(34vh, 230px); min-width: 180px; }
+  .nova-voice-status { margin-bottom: 9px; }
+  .nova-voice-room-footer { padding-top: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-voice-room,
+  .nova-voice-status-dot,
+  .nova-voice-captions-panel {
+    animation: none !important;
+  }
+}
+
+
+
+/* Thin accent-matched Settings gear. Keep it visually native to the sidebar. */
+.sidebar-profile-inline-gear {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nova-accent-light, var(--nova-accent-primary, #8ea99d));
+  opacity: .9;
+  filter: none;
+  transition: color .18s ease, opacity .18s ease, transform .18s ease;
+}
+.sidebar-settings-profile-button:hover .sidebar-profile-inline-gear {
+  color: var(--nova-accent-highlight, var(--nova-accent-light, #a7beb3));
+  opacity: 1;
+}
+.sidebar-profile-inline-gear svg {
+  width: 23px !important;
+  height: 23px !important;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 1.35;
+}
+.app:not(.dark-mode) .sidebar-profile-inline-gear {
+  color: var(--nova-accent-primary, #58776c);
+}
+
+/* =========================================================
+   NOVA ACCENT TOOLTIP LAYER
+   Keep tooltip nodes out of the app's normal flex layout.
+   ========================================================= */
+.nova-accent-tooltip {
+  position: fixed;
+  z-index: 12000;
+  max-width: min(280px, calc(100vw - 28px));
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--nova-accent-highlight, #91aea1) 58%, rgba(255,255,255,.35));
+  border-radius: 10px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--nova-accent-primary, #58776c) 84%, #17211f 16%),
+    color-mix(in srgb, var(--nova-accent-primary, #58776c) 70%, #263b35 30%)
+  );
+  color: #fff;
+  box-shadow: 0 9px 26px color-mix(in srgb, var(--nova-accent-primary, #58776c) 32%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: .005em;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -100%) translateY(4px) scale(.98);
+  transition: opacity .13s ease, transform .13s ease, visibility .13s ease;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.nova-accent-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 80%, #17211f 20%);
+  border-right: 1px solid color-mix(in srgb, var(--nova-accent-highlight, #91aea1) 48%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nova-accent-highlight, #91aea1) 48%, transparent);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.nova-accent-tooltip[data-placement='bottom'] {
+  transform: translate(-50%, 0) translateY(-4px) scale(.98);
+}
+
+.nova-accent-tooltip[data-placement='bottom']::after {
+  top: -5px;
+  bottom: auto;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nova-accent-highlight, #91aea1) 48%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--nova-accent-highlight, #91aea1) 48%, transparent);
+}
+
+.nova-accent-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -100%) translateY(0) scale(1);
+}
+
+.nova-accent-tooltip[data-placement='bottom'].is-visible {
+  transform: translate(-50%, 0) translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-accent-tooltip { transition: none; }
+}
+
+
+/* Home typography remains on the original, regular-weight hero scale. */
+@media (prefers-reduced-motion: reduce) {
+  .app .task-box,
+  .app .chat-workspace .chat-task-box,
+  .app .task-box::before,
+  .app .chat-workspace .chat-task-box::before {
+    transition: none !important;
+  }
+}
+
+
+/* ================================================================
+   NOVA CHAT + VOICE SESSION REFRESH
+   ================================================================ */
+.chat-page.section-page > .chat-workspace {
+  height: 100% !important;
+  min-height: 100% !important;
+}
+.chat-page.section-page > .chat-workspace .conversation-messages {
+  padding-top: clamp(28px, 5vh, 54px) !important;
+  padding-bottom: 36px !important;
+}
+
+/* The composer uses the existing quiet border; no pointer-following strip. */
+.app .task-box,
+.app .chat-workspace .chat-task-box {
+  isolation: auto;
+}
+.app .task-box::before,
+.app .chat-workspace .chat-task-box::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Compact actions sit directly under each assistant response. */
+.nova-response-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 11px;
+}
+.nova-response-action {
+  width: 31px;
+  height: 31px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: color-mix(in srgb, currentColor 64%, var(--nova-accent-primary, #58776c));
+  background: transparent;
+  cursor: pointer;
+  transition: color .16s ease, background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.nova-response-action:hover,
+.nova-response-action:focus-visible {
+  color: var(--nova-accent-primary, #58776c);
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 10%, transparent);
+  border-color: color-mix(in srgb, var(--nova-accent-primary, #58776c) 22%, transparent);
+  outline: none;
+  transform: translateY(-1px);
+}
+.nova-response-action.is-active,
+.nova-response-action.is-confirmed {
+  color: var(--nova-accent-primary, #58776c);
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 12%, transparent);
+}
+.nova-response-action:disabled { opacity: .42; cursor: wait; }
+.app.dark-mode .nova-response-action { color: color-mix(in srgb, #e8eee9 68%, var(--nova-accent-light, #a4b9ae)); }
+.app.dark-mode .nova-response-action:hover,
+.app.dark-mode .nova-response-action.is-active,
+.app.dark-mode .nova-response-action.is-confirmed {
+  color: var(--nova-accent-highlight, #b2c7bc);
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 20%, transparent);
+}
+.nova-response-spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.7px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: nova-response-spin .7s linear infinite;
+}
+@keyframes nova-response-spin { to { transform: rotate(360deg); } }
+
+/* Safe, live task progress appears in the conversation where the answer will arrive. */
+.nova-thinking-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: min(100%, 560px);
+  margin: 3px 0 22px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, var(--nova-accent-primary, #58776c) 18%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 5%, transparent);
+  color: inherit;
+  animation: nova-thinking-enter .2s ease both;
+}
+@keyframes nova-thinking-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.nova-thinking-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+.nova-thinking-indicator i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--nova-accent-primary, #58776c);
+  opacity: .38;
+  animation: nova-thinking-dot 1s ease-in-out infinite;
+}
+.nova-thinking-indicator i:nth-child(2) { animation-delay: .13s; }
+.nova-thinking-indicator i:nth-child(3) { animation-delay: .26s; }
+@keyframes nova-thinking-dot { 0%, 80%, 100% { opacity: .32; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.nova-thinking-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.nova-thinking-copy strong { font-size: 12px; line-height: 1.4; font-weight: 600; }
+.nova-thinking-copy span { font-size: 10px; line-height: 1.4; opacity: .58; }
+.nova-speech-error {
+  width: fit-content;
+  max-width: 100%;
+  margin: 4px 0 18px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  color: #b45f51;
+  background: rgba(180, 95, 81, .08);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Voice captions become a true split session: orb left, transcript right. */
+.nova-voice-room-content.has-transcription {
+  display: grid;
+  grid-template-columns: minmax(250px, .88fr) minmax(300px, 1.12fr);
+  align-items: center;
+  justify-items: center;
+  gap: clamp(26px, 5vw, 76px);
+  width: min(1120px, calc(100% - 64px));
+  margin: 0 auto;
+}
+.nova-voice-room-content.has-transcription .nova-voice-visual {
+  width: min(100%, 330px);
+  min-width: 0;
+  justify-self: center;
+  transform: translateX(-4px);
+}
+.nova-voice-room-content.has-transcription .nova-mercury-orb {
+  transform: scale(.92);
+}
+.nova-voice-room-content.has-transcription .nova-voice-captions-panel {
+  width: 100%;
+  min-width: 0;
+  min-height: min(48vh, 390px);
+  max-height: min(52vh, 460px);
+  margin: 0;
+  padding: 23px 25px;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  border-radius: 21px;
+}
+.nova-voice-captions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--voice-line);
+}
+.nova-voice-caption-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--voice-muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+.nova-voice-caption-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--voice-muted);
+  opacity: .5;
+}
+.nova-voice-caption-live.is-live i {
+  background: var(--voice-accent);
+  opacity: 1;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--voice-accent) 45%, transparent);
+}
+.nova-voice-room-content.has-transcription .nova-voice-captions-panel p {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 19px 0 0;
+  overflow-y: auto;
+  color: var(--voice-text);
+  font-size: clamp(14px, 1.2vw, 17px);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .nova-voice-room-content.has-transcription {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    width: min(100%, 540px);
+    padding: 6px 0 12px;
+  }
+  .nova-voice-room-content.has-transcription .nova-voice-visual {
+    width: min(42vw, 215px);
+    min-width: 165px;
+    aspect-ratio: 1;
+    transform: none;
+  }
+  .nova-voice-room-content.has-transcription .nova-mercury-orb { transform: scale(.82); }
+  .nova-voice-room-content.has-transcription .nova-voice-captions-panel {
+    min-height: 150px;
+    max-height: 28vh;
+    padding: 15px 17px;
+    border-radius: 16px;
+  }
+  .nova-voice-room-content.has-transcription .nova-voice-captions-panel p { margin-top: 12px; font-size: 13px; }
+  .nova-thinking-inline { max-width: calc(100% - 8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-response-spinner,
+  .nova-thinking-indicator i,
+  .nova-thinking-inline { animation: none !important; }
+}
+
+
+/* ================================================================
+   NOVA CHAT POSITION + NAV HOVER RESTORE
+   ================================================================ */
+/* The previous full-chat polish constrained .main to 700px. Chat must
+   reclaim the full workspace to the right of the sidebar. */
+.main.is-chat-view {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  flex: 1 1 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-page.section-page {
+  box-sizing: border-box !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100vh !important;
+  min-height: 0 !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-page.section-page > .chat-workspace {
+  position: relative !important;
+  display: flex !important;
+  flex: 1 1 0 !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-page.section-page > .chat-workspace > .conversation-messages {
+  order: 1 !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  padding: 30px clamp(24px, 4vw, 64px) 28px !important;
+}
+
+.chat-page.section-page > .chat-workspace > .conversation-empty {
+  order: 1 !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+/* Keep the composer as a bottom-anchored floating bar, never in the middle
+   of the conversation column. */
+.chat-page.section-page > .chat-workspace > .chat-task-box {
+  position: relative !important;
+  z-index: 12 !important;
+  order: 3 !important;
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  width: min(900px, calc(100% - 64px)) !important;
+  max-width: 900px !important;
+  min-height: 64px !important;
+  margin: auto auto 22px !important;
+  padding: 8px 9px 8px 19px !important;
+  border-radius: 22px !important;
+}
+
+.chat-page.section-page > .chat-workspace > .voice-feedback {
+  order: 4 !important;
+  align-self: center !important;
+  width: min(900px, calc(100% - 64px)) !important;
+  margin: -12px auto 10px !important;
+}
+
+/* The Home/New Chat rail item is neutral at rest. Only pointer hover gets
+   the existing soft highlight; no persistent accent fill while in Chat. */
+.app .sidebar-primary .nav-item,
+.app.dark-mode .sidebar-primary .nav-item {
+  background: transparent !important;
+  color: inherit !important;
+}
+.app .sidebar-primary .nav-item:hover {
+  background: rgba(255,255,255,.32) !important;
+}
+.app.dark-mode .sidebar-primary .nav-item:hover {
+  background: rgba(255,255,255,.08) !important;
+}
+
+@media (max-width: 720px) {
+  .chat-page.section-page > .chat-workspace > .conversation-messages {
+    padding: 20px 16px 24px !important;
+  }
+  .chat-page.section-page > .chat-workspace > .chat-task-box {
+    width: calc(100% - 24px) !important;
+    margin-bottom: 12px !important;
+    border-radius: 19px !important;
+  }
+  .chat-page.section-page > .chat-workspace > .voice-feedback {
+    width: calc(100% - 24px) !important;
+  }
+}
+
+
+/*
+   NOVA POINTER-PROXIMITY GLOW — fixed physical-length perimeter arc
+   Adapted from Velora's MIT-licensed Glowing Effect. The moving segment is
+   an SVG stroke-dash on the real rounded-rectangle perimeter, not a conic
+   angular wedge, so its visible length remains constant on every edge.
+*/
+.app {
+  --nova-glow-from: color-mix(in srgb, var(--nova-accent-highlight, #b2c7bc) 78%, #ffffff);
+  --nova-glow-via: var(--nova-accent-primary, #58776c);
+  --nova-glow-to: var(--nova-accent-light, #a4b9ae);
+}
+
+.nova-glow-host {
+  position: relative !important;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.nova-glow-host > .nova-glowing-effect {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  border-radius: inherit;
+  opacity: var(--nova-glow-opacity, 0);
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+}
+
+.nova-glow-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nova-glow-path {
+  stroke: var(--nova-glow-from);
+  stroke-width: var(--nova-glow-border-width, 1.35px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--nova-glow-via) 45%, transparent));
+}
+
+.nova-glow-halo-path {
+  stroke: var(--nova-glow-via);
+  stroke-width: calc(var(--nova-glow-border-width, 1.35px) + 5px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .24;
+  filter: blur(3px);
+}
+
+.nova-glow-host > :not(.nova-glowing-effect) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keep the effects individually subtle; direct hover gives a tiny lift. */
+.suggestions button.nova-glow-host {
+  transition: background .2s ease, transform .2s ease, border-color .2s ease;
+}
+.suggestions button.nova-glow-host:hover {
+  transform: translateY(-2px) scale(1.015);
+}
+.app .sidebar-primary .nav-item.nova-glow-host {
+  transition: background .2s ease, transform .2s ease, color .2s ease;
+}
+.app .sidebar-primary .nav-item.nova-glow-host:hover {
+  transform: translateX(2px) scale(1.012);
+}
+.app .task-box.nova-glow-host {
+  transition: transform .2s ease, box-shadow .25s ease;
+}
+.app .task-box.nova-glow-host:hover {
+  transform: scale(1.003);
+}
+
+/* Keep the pointer-following segment only. Focusing/clicking the composer
+   must never convert the entire rounded border into a solid accent outline. */
+@media (prefers-reduced-motion: reduce) {
+  /* The animated perimeter tracker is disabled by JS for reduced motion;
+     hide its SVG rather than exposing the un-dashed full rectangle. */
+  .nova-glow-host > .nova-glowing-effect {
+    opacity: 0 !important;
+    transition: none !important;
+  }
+  .suggestions button.nova-glow-host:hover,
+  .app .sidebar-primary .nav-item.nova-glow-host:hover,
+  .app .task-box.nova-glow-host:hover {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   NOVA SETTINGS TABS + VOICEBOX PROFILE / WHISPER CONTROLS
+   ========================================================= */
+.settings-tabs {
+  width: min(100%, 900px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 17px;
+  padding: 5px;
+  border: 1px solid rgba(35,45,42,.075);
+  border-radius: 15px;
+  background: rgba(255,255,255,.42);
+}
+.settings-tabs button {
+  min-height: 39px;
+  flex: 1 1 0;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #68716e;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.settings-tabs button:hover { background: rgba(255,255,255,.58); color: #293330; }
+.settings-tabs button.active {
+  background: rgba(255,255,255,.94);
+  color: var(--nova-accent-primary, #58776c);
+  box-shadow: 0 3px 10px rgba(30,40,35,.07);
+}
+.settings-tab-content { display: flex; flex-direction: column; gap: 14px; }
+.settings-tab-content .settings-card { width: 100%; }
+.settings-voice-profile-card,
+.settings-whisper-card,
+.settings-voice-automation-card { align-items: flex-start; }
+.settings-voice-profile-controls { width: min(100%, 430px); display: flex; flex-direction: column; align-items: stretch; gap: 9px; flex: 0 1 430px; }
+.nova-voice-picker { position: relative; z-index: 4; width: 100%; min-width: 0; }
+.nova-voice-picker-trigger {
+  width: 100%; min-height: 54px; padding: 8px 12px; display: flex; align-items: center; gap: 10px;
+  border: 1px solid rgba(50,65,58,.14); border-radius: 13px; background: rgba(248,248,245,.9);
+  color: #2d3934; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease;
+}
+.nova-voice-picker-trigger:hover { border-color: var(--nova-accent-light, #a4b9ae); background: #fff; }
+.nova-voice-picker-selected-mark,
+.nova-voice-picker-orb { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff 0, var(--nova-accent-highlight, #b2c7bc) 38%, var(--nova-accent-primary, #58776c) 100%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--nova-accent-primary, #58776c) 10%, transparent);
+}
+.nova-voice-picker-selected-mark i,
+.nova-voice-picker-orb i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 0 8px rgba(255,255,255,.8); }
+.nova-voice-picker-trigger-copy,
+.nova-voice-picker-profile-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.nova-voice-picker-trigger-copy strong { overflow: hidden; color: inherit; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.nova-voice-picker-trigger-copy small,
+.nova-voice-picker-profile-copy small { overflow: hidden; color: #79837e; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.nova-voice-picker-chevron { margin-left: auto; color: #718078; font-size: 19px; line-height: 1; }
+.nova-voice-picker-popover {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 100; padding: 9px;
+  border: 1px solid rgba(40,55,48,.13); border-radius: 15px; background: rgba(250,251,248,.98);
+  box-shadow: 0 18px 50px rgba(15,25,20,.18); backdrop-filter: blur(18px);
+}
+.nova-voice-picker-search { height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(50,65,58,.11); border-radius: 10px; color: #7c8982; background: rgba(240,242,237,.78); }
+.nova-voice-picker-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #26312c; font-size: 12px; }
+.nova-voice-picker-list { max-height: 250px; margin-top: 7px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.nova-voice-picker-row { min-height: 48px; display: flex; align-items: center; gap: 5px; border-radius: 10px; }
+.nova-voice-picker-row:hover,
+.nova-voice-picker-row.selected { background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 9%, transparent); }
+.nova-voice-picker-choice { min-width: 0; flex: 1; padding: 6px 7px; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; text-align: left; color: #2d3934; cursor: pointer; }
+.nova-voice-picker-orb { width: 27px; height: 27px; flex-basis: 27px; }
+.nova-voice-picker-orb i { width: 6px; height: 6px; }
+.nova-voice-picker-profile-copy strong { color: inherit; font-size: 11px; font-weight: 650; }
+.nova-voice-picker-check { width: 16px; color: var(--nova-accent-primary, #58776c); font-size: 13px; font-weight: 700; }
+.nova-voice-picker-preview { width: 31px; height: 31px; margin-right: 6px; flex: 0 0 31px; border: 1px solid rgba(50,65,58,.12); border-radius: 9px; background: rgba(255,255,255,.7); color: var(--nova-accent-primary, #58776c); font-size: 11px; cursor: pointer; }
+.nova-voice-picker-preview:hover,
+.nova-voice-picker-preview.is-playing { background: var(--nova-accent-soft, #e5ece7); border-color: var(--nova-accent-light, #a4b9ae); }
+.nova-voice-picker-footnote { padding: 8px 4px 1px; color: #87918b; font-size: 9px; }
+.nova-voice-picker-error,
+.nova-voice-picker-empty { margin: 9px 4px 3px; color: #88928c; font-size: 11px; line-height: 1.45; }
+.settings-primary-button,
+.settings-secondary-button {
+  min-height: 38px; padding: 0 13px; border-radius: 10px; font-size: 11px; font-weight: 650; cursor: pointer;
+  transition: transform .16s ease, background .16s ease, border-color .16s ease;
+}
+.settings-primary-button { border: 1px solid var(--nova-accent-primary, #58776c); background: var(--nova-accent-primary, #58776c); color: #fff; }
+.settings-primary-button:hover:not(:disabled) { transform: translateY(-1px); background: var(--nova-accent-hover, #4e6e63); }
+.settings-secondary-button { border: 1px solid rgba(45,55,52,.13); background: rgba(247,246,242,.72); color: #58645e; }
+.settings-secondary-button:hover:not(:disabled) { border-color: var(--nova-accent-light, #a4b9ae); background: var(--nova-accent-soft, #e5ece7); }
+.settings-primary-button:disabled,
+.settings-secondary-button:disabled { opacity: .55; cursor: not-allowed; }
+.settings-whisper-actions { min-width: 150px; display: flex; flex-direction: column; gap: 8px; }
+.settings-whisper-status { margin-top: 12px; display: flex; align-items: center; gap: 8px; color: #77827b; font-size: 11px; line-height: 1.45; }
+.settings-whisper-status.ready { color: #3d8064; }
+.settings-whisper-status.error { color: #a45b58; }
+.settings-whisper-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #b4bdb7; }
+.settings-whisper-status.ready .settings-whisper-dot { background: #56a47c; box-shadow: 0 0 0 3px rgba(86,164,124,.13); }
+.settings-whisper-status.error .settings-whisper-dot { background: #c67670; }
+.settings-toggle { width: 44px; height: 25px; flex: 0 0 44px; padding: 3px; border: 0; border-radius: 99px; background: #c4ccc6; cursor: pointer; transition: background .18s ease; }
+.settings-toggle span { width: 19px; height: 19px; display: block; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); transition: transform .18s ease; }
+.settings-toggle.on { background: var(--nova-accent-primary, #58776c); }
+.settings-toggle.on span { transform: translateX(19px); }
+
+/* Sidebar chat search replaces the old conversation count. */
+.sidebar-chat-search-toggle,
+.sidebar-chat-search-close {
+  width: 25px; height: 25px; flex: 0 0 25px; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; color: currentColor; cursor: pointer;
+  transition: background .16s ease, color .16s ease;
+}
+.sidebar-chat-search-toggle:hover,
+.sidebar-chat-search-close:hover { background: rgba(255,255,255,.54); color: var(--nova-accent-primary, #58776c); }
+.sidebar-chat-search-wrap { min-width: 0; flex: 1 1 auto; display: flex; align-items: center; gap: 3px; }
+.sidebar-chat-search-input { width: 100%; min-width: 0; height: 28px; padding: 0 7px; border: 1px solid rgba(45,60,52,.14); border-radius: 8px; outline: 0; background: rgba(255,255,255,.56); color: #26332d; font-size: 10px; }
+.sidebar-chat-search-input:focus { border-color: var(--nova-accent-light, #a4b9ae); box-shadow: 0 0 0 2px color-mix(in srgb, var(--nova-accent-primary, #58776c) 10%, transparent); }
+.sidebar-chat-search-input::placeholder { color: #89938d; }
+.sidebar-chats-heading.search-open { gap: 5px; }
+.sidebar.collapsed .sidebar-chat-search-wrap { position: absolute; top: 4px; left: calc(100% - 5px); width: 205px; padding: 5px; border: 1px solid rgba(45,60,52,.12); border-radius: 10px; background: var(--nova-sidebar-bg, #dfe3da); box-shadow: 0 10px 30px rgba(20,30,25,.16); z-index: 60; }
+.sidebar.compact .sidebar-chat-search-input { font-size: 9px; }
+
+/* Dark theme support for new settings and chat-search controls. */
+.app.dark-mode .settings-tabs { border-color: rgba(255,255,255,.08); background: rgba(20,25,23,.45); }
+.app.dark-mode .settings-tabs button { color: #aab5ae; }
+.app.dark-mode .settings-tabs button:hover { background: rgba(255,255,255,.05); color: #edf2ee; }
+.app.dark-mode .settings-tabs button.active { background: rgba(255,255,255,.09); color: var(--nova-accent-light, #a4b9ae); box-shadow: none; }
+.app.dark-mode .nova-voice-picker-trigger,
+.app.dark-mode .nova-voice-picker-popover { border-color: rgba(255,255,255,.1); background: rgba(25,31,28,.97); color: #edf2ee; }
+.app.dark-mode .nova-voice-picker-trigger:hover { background: rgba(35,44,39,.98); }
+.app.dark-mode .nova-voice-picker-trigger-copy small,
+.app.dark-mode .nova-voice-picker-profile-copy small,
+.app.dark-mode .nova-voice-picker-footnote { color: #9aa79f; }
+.app.dark-mode .nova-voice-picker-search { border-color: rgba(255,255,255,.1); background: rgba(8,12,10,.5); }
+.app.dark-mode .nova-voice-picker-search input,
+.app.dark-mode .nova-voice-picker-choice { color: #e7eee9; }
+.app.dark-mode .nova-voice-picker-preview,
+.app.dark-mode .settings-secondary-button { border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #cbd8d0; }
+.app.dark-mode .settings-secondary-button:hover:not(:disabled),
+.app.dark-mode .nova-voice-picker-preview:hover { background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 24%, transparent); }
+.app.dark-mode .sidebar-chat-search-input { border-color: rgba(255,255,255,.12); background: rgba(20,26,23,.65); color: #e9efeb; }
+.app.dark-mode .sidebar-chat-search-toggle:hover,
+.app.dark-mode .sidebar-chat-search-close:hover { background: rgba(255,255,255,.08); }
+.app.dark-mode .sidebar.collapsed .sidebar-chat-search-wrap { border-color: rgba(255,255,255,.1); background: #222b26; }
+
+@media (max-width: 760px) {
+  .settings-tabs { gap: 3px; }
+  .settings-tabs button { padding: 0 7px; font-size: 10px; }
+  .settings-whisper-card,
+  .settings-voice-profile-card,
+  .settings-voice-automation-card { flex-direction: column; }
+  .settings-whisper-actions { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .settings-voice-profile-controls { width: 100%; flex-basis: auto; }
+}
+
+
+/* Voice Mode transcript distinguishes the user's words from NOVA's speech. */
+.nova-voice-transcript-stream { display: flex; flex-direction: column; gap: 17px; }
+.nova-voice-transcript-row { display: flex; flex-direction: column; gap: 6px; }
+.nova-voice-transcript-speaker { color: var(--nova-accent-primary, #58776c); font-size: 9px; font-weight: 750; letter-spacing: .15em; }
+.nova-voice-transcript-row p { margin: 0; }
+.nova-voice-transcript-assistant { padding-top: 14px; border-top: 1px solid rgba(100,115,105,.14); }
+.nova-voice-room[data-theme="dark"] .nova-voice-transcript-assistant { border-top-color: rgba(255,255,255,.1); }
+
+/* Voice Mode live conversation transcript and explicit send control. */
+.nova-voice-transcript-live-user p { color: var(--nova-text-primary, #26332d); }
+.nova-voice-send-transcript {
+  align-self: flex-start;
+  min-height: 36px;
+  margin-top: 16px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--nova-accent-primary, #58776c) 28%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 10%, transparent);
+  color: var(--nova-accent-primary, #58776c);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.nova-voice-send-transcript:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 16%, transparent);
+  border-color: color-mix(in srgb, var(--nova-accent-primary, #58776c) 42%, transparent);
+}
+.nova-voice-send-transcript:disabled { opacity: .55; cursor: wait; }
+.nova-voice-room[data-theme="dark"] .nova-voice-transcript-live-user p { color: #e6eee8; }
+.nova-voice-room[data-theme="dark"] .nova-voice-send-transcript {
+  border-color: color-mix(in srgb, var(--nova-accent-highlight, #b2c7bc) 30%, transparent);
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 20%, transparent);
+  color: var(--nova-accent-highlight, #b2c7bc);
+}
+
+/* =========================================================
+   NOVA VOICE — PART 3: session controls and quick preferences
+   ========================================================= */
+.nova-voice-room-header { align-items: center; justify-content: space-between; gap: 16px; }
+.nova-voice-room-tag {
+  padding: 5px 8px; border: 1px solid var(--voice-line); border-radius: 999px;
+  color: var(--voice-muted); font-size: 8px; font-weight: 750; letter-spacing: .16em;
+}
+.nova-voice-round-control:focus-visible,
+.nova-voice-end-button:focus-visible {
+  outline: 2px solid var(--voice-accent); outline-offset: 3px;
+}
+.nova-voice-room[data-voice-state="error"] .nova-voice-status-dot { background: #d39a53; box-shadow: 0 0 12px rgba(211,154,83,.48); animation-duration: .65s; }
+.nova-voice-room[data-voice-state="disabled"] .nova-voice-status-dot { opacity: .35; animation: none; }
+.nova-voice-round-control:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+.nova-voice-controls { gap: clamp(9px, 2.2vw, 22px); }
+.nova-voice-captions-panel { width: min(90vw, 560px); max-height: min(36vh, 320px); overflow: hidden; display: flex; flex-direction: column; }
+.nova-voice-transcript-stream { min-height: 0; max-height: min(28vh, 245px); overflow-y: auto; padding: 2px 4px 4px; scroll-behavior: smooth; text-align: left; }
+.nova-voice-transcript-row p { font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.settings-voice-behaviour-options { width: min(100%, 430px); display: flex; flex-direction: column; }
+.settings-voice-behaviour-option { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 0; border-bottom: 1px solid rgba(80,95,85,.1); cursor: pointer; }
+.settings-voice-behaviour-option:last-child { border-bottom: 0; }
+.settings-voice-behaviour-option span { display: flex; flex-direction: column; gap: 4px; }
+.settings-voice-behaviour-option strong { color: var(--nova-text-primary, #28342e); font-size: 11px; font-weight: 700; }
+.settings-voice-behaviour-option small { max-width: 360px; color: var(--nova-text-muted, #849087); font-size: 10px; line-height: 1.45; }
+.settings-voice-behaviour-option input { width: 17px; height: 17px; flex: 0 0 17px; accent-color: var(--nova-accent-primary, #58776c); cursor: pointer; }
+.settings-voice-speed-settings { width: min(100%, 430px); display: flex; align-items: center; gap: 15px; }
+.settings-voice-speed-settings output { min-width: 48px; color: var(--nova-accent-primary, #58776c); font-size: 12px; font-weight: 750; text-align: right; font-variant-numeric: tabular-nums; }
+.settings-voice-speed-settings input { width: 100%; accent-color: var(--nova-accent-primary, #58776c); cursor: pointer; }
+.app.dark-mode .settings-voice-behaviour-option { border-color: rgba(255,255,255,.09); }
+.app.dark-mode .settings-voice-behaviour-option strong { color: #e5ede8; }
+.app.dark-mode .settings-voice-behaviour-option small { color: #9eaaa2; }
+@media (max-width: 760px) {
+  .nova-voice-controls { gap: 9px; }
+  .nova-voice-round-control { width: 52px; height: 52px; }
+  .nova-voice-end-button { width: 58px; height: 58px; }
+  .nova-voice-captions-panel { width: min(92vw, 560px); max-height: 34vh; }
+  .settings-voice-behaviour-card,
+  .settings-voice-speed-card { flex-direction: column; }
+  .settings-voice-behaviour-options,
+  .settings-voice-speed-settings { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nova-voice-transcript-stream { scroll-behavior: auto; }
+}
+
+.nova-voice-retry-button {
+  min-height: 34px; margin: 0 0 14px; padding: 0 13px; border: 1px solid var(--voice-line);
+  border-radius: 999px; color: var(--voice-accent-ink); background: var(--voice-button-bg);
+  font-size: 10px; font-weight: 700; cursor: pointer; transition: background .16s ease, transform .16s ease;
+}
+.nova-voice-retry-button:hover { transform: translateY(-1px); background: var(--voice-button-hover); }
+
+
+/* NOVA Voice minimal split transcript: NOVA on the left, the user on the right. */
+.nova-voice-transcript-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 15px;
+}
+.nova-voice-transcript-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 13px;
+  border: 1px solid var(--voice-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--voice-bg) 45%, transparent);
+}
+.nova-voice-transcript-column-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--voice-line);
+  color: var(--voice-text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.nova-voice-transcript-avatar {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  color: var(--voice-accent-ink);
+  background: color-mix(in srgb, var(--voice-accent) 16%, transparent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.nova-voice-transcript-avatar.you-avatar {
+  color: var(--voice-text);
+  background: color-mix(in srgb, var(--voice-text) 10%, transparent);
+}
+.nova-voice-transcript-column .nova-voice-transcript-stream {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  max-height: none;
+  padding: 10px 2px 2px;
+  overflow: auto;
+  text-align: left;
+}
+.nova-voice-transcript-column .nova-voice-transcript-row {
+  padding: 0;
+  border: 0;
+}
+.nova-voice-transcript-column .nova-voice-transcript-row p {
+  flex: 0 0 auto;
+  max-height: none;
+  margin: 0 0 9px;
+  overflow: visible;
+  color: var(--voice-text);
+  font-size: clamp(11px, .95vw, 13px);
+  line-height: 1.62;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.nova-voice-transcript-empty {
+  margin: 4px 0 0 !important;
+  color: var(--voice-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.55 !important;
+}
+.nova-voice-transcript-you .nova-voice-transcript-live-user p {
+  color: var(--voice-accent-ink);
+}
+.nova-voice-send-transcript {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  margin-top: 9px;
+}
+.nova-voice-room[data-theme="dark"] .nova-voice-transcript-column {
+  background: rgba(255,255,255,.025);
+}
+.nova-voice-end-button {
+  color: #fff !important;
+  background: #c95762 !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 25px rgba(201,87,98,.28);
+}
+.nova-voice-end-button:hover {
+  color: #fff !important;
+  background: #b84954 !important;
+  box-shadow: 0 10px 28px rgba(201,87,98,.36);
+}
+@media (max-width: 760px) {
+  .nova-voice-transcript-columns { gap: 8px; margin-top: 10px; }
+  .nova-voice-transcript-column { padding: 9px; border-radius: 11px; }
+  .nova-voice-transcript-column-heading { gap: 6px; padding-bottom: 8px; font-size: 8px; }
+  .nova-voice-transcript-avatar { width: 21px; height: 21px; flex-basis: 21px; }
+  .nova-voice-transcript-column .nova-voice-transcript-row p { font-size: 10px; line-height: 1.5; }
+  .nova-voice-transcript-empty { font-size: 9px !important; }
+  .nova-voice-end-button { width: 58px; height: 58px; }
+}
+
+/* Keep the two transcript columns compact despite the older panel-wide paragraph defaults. */
+.nova-voice-room-content.has-transcription .nova-voice-captions-panel .nova-voice-transcript-column .nova-voice-transcript-row p {
+  flex: 0 0 auto;
+  max-height: none;
+  margin: 0 0 9px;
+  overflow: visible;
+  font-size: clamp(11px, .95vw, 13px);
+  line-height: 1.62;
+}
+.nova-voice-room-content.has-transcription .nova-voice-captions-panel .nova-voice-transcript-column .nova-voice-transcript-empty {
+  margin: 4px 0 0;
+  color: var(--voice-muted);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow: visible;
+}
+@media (max-width: 760px) {
+  .nova-voice-room-content.has-transcription .nova-voice-captions-panel .nova-voice-transcript-column .nova-voice-transcript-row p {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .nova-voice-room-content.has-transcription .nova-voice-captions-panel .nova-voice-transcript-column .nova-voice-transcript-empty {
+    font-size: 9px;
+  }
+}
+
+
+/* General conversation-language preference */
+.settings-language-control {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 320px);
+  min-width: 220px;
+}
+.settings-language-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--border, rgba(120, 130, 125, 0.28));
+  border-radius: 12px;
+  color: var(--text-primary, inherit);
+  background: var(--surface, rgba(255, 255, 255, 0.72));
+  font: inherit;
+  outline: none;
+}
+.settings-language-select:focus-visible {
+  border-color: var(--accent, #58776c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #58776c) 18%, transparent);
+}
+.settings-language-control small {
+  color: var(--text-secondary, #777);
+  line-height: 1.45;
+}
+
+
+/* Chronological chat transcript for NOVA Voice Mode. */
+.nova-voice-chat-thread {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  max-height: min(32vh, 310px);
+  margin-top: 14px;
+  padding: 2px 4px 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  text-align: left;
+}
+.nova-voice-chat-message {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: fit-content;
+  max-width: min(88%, 720px);
+}
+.nova-voice-chat-message.is-user { align-self: flex-end; align-items: flex-end; }
+.nova-voice-chat-message.is-assistant { align-self: flex-start; }
+.nova-voice-chat-speaker {
+  padding: 0 5px;
+  color: var(--voice-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.nova-voice-chat-message.is-assistant .nova-voice-chat-speaker { color: var(--voice-accent-ink); }
+.nova-voice-chat-bubble {
+  padding: 10px 13px;
+  border: 1px solid var(--voice-line);
+  border-radius: 15px 15px 15px 5px;
+  background: color-mix(in srgb, var(--voice-bg) 55%, transparent);
+  color: var(--voice-text);
+}
+.nova-voice-chat-message.is-user .nova-voice-chat-bubble {
+  border-color: color-mix(in srgb, var(--voice-accent) 24%, var(--voice-line));
+  border-radius: 15px 15px 5px 15px;
+  background: color-mix(in srgb, var(--voice-accent) 13%, var(--voice-bg));
+}
+.nova-voice-chat-bubble p {
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.nova-voice-chat-message.is-live-message .nova-voice-chat-bubble { border-style: dashed; }
+.nova-voice-chat-thread .nova-voice-transcript-empty { align-self: center; margin: auto 0 !important; padding: 18px; text-align: center; }
+.nova-voice-picker-retry {
+  margin: 7px 4px 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--nova-accent-light, #a4b9ae);
+  border-radius: 9px;
+  color: var(--nova-accent-primary, #58776c);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nova-voice-picker-retry:disabled { cursor: wait; opacity: .6; }
+.app.dark-mode .nova-voice-picker-retry { color: var(--nova-accent-light, #a4b9ae); }
+.nova-voice-room[data-theme="dark"] .nova-voice-chat-bubble { background: rgba(255,255,255,.035); }
+.nova-voice-room[data-theme="dark"] .nova-voice-chat-message.is-user .nova-voice-chat-bubble { background: color-mix(in srgb, var(--voice-accent) 20%, rgba(255,255,255,.025)); }
+@media (max-width: 760px) {
+  .nova-voice-chat-thread { max-height: min(36vh, 300px); gap: 9px; margin-top: 10px; }
+  .nova-voice-chat-message { max-width: 94%; }
+  .nova-voice-chat-bubble { padding: 8px 10px; }
+  .nova-voice-chat-bubble p { font-size: 11px; line-height: 1.55; }
+}
+@media (prefers-reduced-motion: reduce) { .nova-voice-chat-thread { scroll-behavior: auto; } }
+
+
+/* Sidebar chat search sizing and integrated close control. */
+.sidebar-chats-heading:not(.search-open) {
+  column-gap: 24px !important;
+}
+.sidebar-chats-heading:not(.search-open) > .sidebar-chat-search-toggle {
+  margin-left: auto !important;
+}
+.sidebar-chats-heading.search-open {
+  flex: 0 0 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  justify-content: stretch !important;
+  gap: 0 !important;
+  box-sizing: border-box !important;
+  /* Match the Home button's outer edges: equal left/right inset. */
+  padding: 4px 0 8px !important;
+  overflow: visible !important;
+}
+.sidebar-chats-heading.search-open > .sidebar-chat-search-wrap {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 36px !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  border: 1px solid rgba(45,60,52,.13) !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  box-shadow: 0 2px 8px rgba(20,30,25,.055) !important;
+  overflow: hidden !important;
+}
+.sidebar-chats-heading.search-open .sidebar-chat-search-input {
+  display: block !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  box-sizing: border-box !important;
+  padding: 0 38px 0 11px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #26332d !important;
+  font-size: 12px !important;
+}
+.sidebar-chats-heading.search-open .sidebar-chat-search-input:focus {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+.sidebar-chats-heading.search-open .sidebar-chat-search-close {
+  position: absolute !important;
+  top: 50% !important;
+  right: 5px !important;
+  transform: translateY(-50%) !important;
+  z-index: 2 !important;
+  width: 25px !important;
+  height: 25px !important;
+  min-width: 25px !important;
+  flex: 0 0 25px !important;
+  display: grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: #68736c !important;
+  font-size: 19px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+.sidebar-chats-heading.search-open .sidebar-chat-search-close:hover {
+  background: rgba(45,60,52,.08) !important;
+  color: #26332d !important;
+}
+
+/* In collapsed mode, let the search bar temporarily extend beyond the
+   icon-only sidebar while retaining the same integrated close control. */
+.sidebar.collapsed:has(.sidebar-chats-heading.search-open) {
+  overflow: visible !important;
+  z-index: 100 !important;
+}
+.sidebar.collapsed .sidebar-chats:has(.sidebar-chats-heading.search-open) {
+  overflow: visible !important;
+}
+.sidebar.collapsed .sidebar-chats-heading.search-open {
+  position: relative !important;
+  width: 250px !important;
+  min-width: 250px !important;
+  max-width: 250px !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  padding: 5px 10px !important;
+  justify-content: stretch !important;
+  border: 1px solid rgba(45,60,52,.12) !important;
+  border-radius: 11px !important;
+  background: var(--nova-sidebar-bg, #dfe3da) !important;
+  box-shadow: 0 10px 30px rgba(20,30,25,.16) !important;
+  z-index: 110 !important;
+}
+.sidebar.collapsed .sidebar-chats-heading.search-open > .sidebar-chat-search-wrap {
+  width: 100% !important;
+  height: 36px !important;
+}
+.app.dark-mode .sidebar-chats-heading.search-open > .sidebar-chat-search-wrap {
+  border-color: rgba(255,255,255,.13) !important;
+  background: #151c18 !important;
+}
+.app.dark-mode .sidebar-chats-heading.search-open .sidebar-chat-search-input {
+  color: #e9efeb !important;
+}
+.app.dark-mode .sidebar-chats-heading.search-open .sidebar-chat-search-input::placeholder {
+  color: #9aa79f !important;
+}
+.app.dark-mode .sidebar-chats-heading.search-open .sidebar-chat-search-close {
+  color: #cbd5ce !important;
+}
+.app.dark-mode .sidebar-chats-heading.search-open .sidebar-chat-search-close:hover {
+  background: rgba(255,255,255,.09) !important;
+  color: #fff !important;
+}
+.app.dark-mode .sidebar.collapsed .sidebar-chats-heading.search-open {
+  border-color: rgba(255,255,255,.1) !important;
+  background: #222b26 !important;
 }

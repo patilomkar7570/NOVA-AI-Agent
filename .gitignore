@@ -1,59 +1,137 @@
-# Python
+# ============================================================
+# Python environments and caches
+# ============================================================
 __pycache__/
 *.py[cod]
 *.pyo
 .venv/
 venv/
 env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# PyInstaller
+# Generated lint report
+frontend/lint-output.txt
+
+# ============================================================
+# Generated application builds
+# ============================================================
 build/
 dist/
+Output/
 *.manifest
 *.toc
 *.pyz
 *.pkg
+NOVA.exe
 
-# NOVA local browser profiles
+# ============================================================
+# Node / frontend generated files
+# ============================================================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Keep package.json and package-lock.json tracked.
+# npm ci / npm install creates frontend/node_modules after installation.
+
+# ============================================================
+# NOVA browser automation profiles
+# These are created for each user's local browser session.
+# They may contain cookies, login sessions, and browsing state.
+# ============================================================
 BraveAgentProfile/
 BraveAgentProfile_old/
 BraveProfile/
+EdgeAgentProfile/
+ChromeAgentProfile/
+NOVA_BrowserAgentProfile/
 
-# NOVA local data
+# ============================================================
+# NOVA local runtime data
+# These files are user-specific and should be created by NOVA at runtime.
+# ============================================================
 chat_history.json
-
-# Node
-frontend/node_modules/
-frontend/dist/
-
-# Environment / secrets
-.env
-.env.*
-!.env.example
-
-# Logs
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# NOVA local runtime data (generated per installation; never commit personal state)
 nova_memory.json
 nova_memory.json.tmp
 nova_page_text/
+
+nova_shared_memory.sqlite3
+nova_shared_memory.sqlite3-shm
+nova_shared_memory.sqlite3-wal
+
 nova_website_memory.sqlite3
 nova_website_memory.sqlite3-shm
 nova_website_memory.sqlite3-wal
 
-# NOVA local runtime data
-NOVA.exe
-nova_memory.json
-nova_page_text/
-nova_website_memory.sqlite3
-nova_website_memory.sqlite3-shm
-nova_website_memory.sqlite3-wal
+# ============================================================
+# Local model downloads and model caches
+# Do not commit model weights. Setup/first-run should download them.
+# These are directory-specific to avoid accidentally ignoring source assets.
+# ============================================================
+/models/
+/checkpoints/
+/voice_models/
+model_cache/
+voicebox_cache/
+.cache/
+huggingface/
+
+# ============================================================
+# Local voice captures / generated audio
+# User recordings and temporary/generated audio are not source assets.
+# ============================================================
+recordings/
+captures/
+generated_audio/
+voice_recordings/
+audio_cache/
+
+# ============================================================
+# Secrets and local configuration
+# Commit an .env.example with placeholder names only, never real values.
+# ============================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+token.json
+secrets.json
+client_secret*.json
+
+# ============================================================
+# Logs, temporary files, and patch backups
+# ============================================================
+*.log
+*.tmp
+*.temp
+*.bak
+*.bak.*
+*.backup
+*.orig
+*.swp
+*~
+
+# ============================================================
+# Operating system and IDE files
+# ============================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# Generated local Voicebox audio
+runtime/voicebox_audio/
