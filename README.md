@@ -27,7 +27,7 @@ The AI models can be demanding. Performance depends on the CPU, GPU, RAM, availa
 ## 2. Download NOVA Alpha 0.5
 
 1. Open the [NOVA GitHub Releases page](https://github.com/patilomkar7570/NOVA-AI-Agent/releases).
-2. Download the source archive for **Alpha 0.5 / `v0.5.0-alpha`** once that release is published.
+2. Download the source archive for **Alpha 0.5 / `v0.5.0-alpha`** from the [published release](https://github.com/patilomkar7570/NOVA-AI-Agent/releases/tag/v0.5.0-alpha).
 3. Extract the archive to a normal writable folder.
 4. Keep the project structure intact. The main folder should contain files such as `api.py`, `agent.py`, `requirements.txt`, and a `frontend` folder.
 5. Place `Startup-Portable.bat` in that main project folder, beside `api.py` and `agent.py`.
@@ -40,19 +40,13 @@ NOVA uses Python for its backend. Install **Python 3.11 or newer** and make sure
 
 1. Install the [Python Install Manager](https://www.python.org/downloads/) for Windows. The [official Windows instructions](https://docs.python.org/3/using/windows.html) explain the manager and its commands.
 2. Open a new PowerShell window.
-3. Install the project's pinned Python version:
+3. Confirm that Python 3.11 or newer is available:
 
    ```powershell
    py -3 --version
    ```
 
-4. Confirm that it is available:
-
-   ```powershell
-   python --version
-   ```
-
-5. In the NOVA project folder, create a virtual environment and install the Python requirements:
+4. In the NOVA project folder, create a virtual environment and install the Python requirements:
 
    ```powershell
    py -3 -m venv .venv
@@ -367,7 +361,7 @@ The following areas still need broader real-world validation:
 
 ## Troubleshooting checklist
 
-- **Python not found:** Reopen PowerShell after installing Python Install Manager. Check `pymanager --version` and `python --version`.
+- **Python not found:** Reopen PowerShell after installing Python. Check `py -3 --version` or `python --version`.
 - **Python dependency error:** Confirm `.venv` was created with Python 3.11 or newer and rerun `pip install -r requirements.txt` using `.venv\Scripts\python.exe`.
 - **npm not found:** Install Node.js LTS, reopen the terminal, and check `node --version` and `npm --version`.
 - **Ollama is unavailable:** Open Ollama and run `ollama list`. Confirm the local API responds at `http://127.0.0.1:11434/api/tags`.
