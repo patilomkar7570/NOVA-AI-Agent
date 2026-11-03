@@ -390,7 +390,11 @@ The following areas still need broader real-world validation:
 - [Playwright for Python](https://playwright.dev/python/docs/browsers)
 
 
+## 📜 Licensing
+
+The NOVA project is licensed under [PolyForm Noncommercial 1.0.0](LICENSE). This licence applies to NOVA's original project code and contributions that the project has the right to license. Third-party components retain their own licence terms and notices; see the [`LICENSES/`](LICENSES/) directory.
+
 ---
 
-**NOVA Alpha 0.5 — Voice & Browser Expansion**
-*More natural interaction. More browser choice. More control over how NOVA listens and speaks.*
+**NOVA Alpha 0.5 — Voice and UI Update**
+*More natural voice interaction. Local and online speech. A more expressive NOVA interface.*
