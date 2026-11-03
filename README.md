@@ -12,7 +12,7 @@ The goal is to make NOVA a more natural, capable, and locally powered AI assista
 
 # ⬇️ Installation & Setup
 
-> **Read before installing:** NOVA Alpha 0.5 is currently a Windows development/alpha build. The current interface runs in a browser; a standalone desktop application and a self-contained EXE are not part of this release. The automated `Install-NOVA.bat` bootstrapper is still a prototype and has not completed a clean Windows end-to-end test. Use the manual setup below until the installer has been corrected and validated.
+> **Read before installing:** NOVA Alpha 0.5 is a Windows local-first development/alpha build. The interface runs in a browser; a standalone desktop application and a self-contained EXE are not included. This repository provides manual setup instructions and a portable development launcher. Install the prerequisites and download the required models separately before starting NOVA.
 
 ## 1. Check the system requirements
 
@@ -36,31 +36,31 @@ Do not mix Alpha 0.5 files with the older Alpha 0.4 source.
 
 ## 3. Install Python
 
-NOVA's supplied Alpha 0.5 installer script currently pins **CPython 3.14.7** through the official Python Install Manager.
+NOVA uses Python for its backend. Install **Python 3.11 or newer** and make sure the Windows Python launcher (`py`) is available in PowerShell.
 
 1. Install the [Python Install Manager](https://www.python.org/downloads/) for Windows. The [official Windows instructions](https://docs.python.org/3/using/windows.html) explain the manager and its commands.
 2. Open a new PowerShell window.
 3. Install the project's pinned Python version:
 
    ```powershell
-   pymanager install 3.14.7
+   py -3 --version
    ```
 
 4. Confirm that it is available:
 
    ```powershell
-   pymanager exec 3.14.7 --version
+   python --version
    ```
 
 5. In the NOVA project folder, create a virtual environment and install the Python requirements:
 
    ```powershell
-   pymanager exec 3.14.7 -m venv .venv
+   py -3 -m venv .venv
    .\.venv\Scripts\python.exe -m pip install --upgrade pip
    .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 
-**Version note:** Python 3.14.8 is available upstream ([official release page](https://www.python.org/downloads/release/python-3148/)), but this Alpha 0.5 installer snapshot still pins 3.14.7. Use the pinned version for this build unless the project updates and tests its Python pin. Do not change Python versions midway through an installation.
+Use the same Python installation to create the virtual environment and install the backend dependencies. If the `py` launcher is unavailable, install Python from the official download page and use `python` in place of `py -3`.
 
 ## 4. Install Node.js and npm
 
@@ -76,7 +76,7 @@ NOVA's frontend uses Node.js and npm.
    npm --version
    ```
 
-The installer script uses the WinGet `OpenJS.NodeJS.LTS` package, so it follows the LTS channel rather than fixing a Node version. At the time this README was prepared, the official download page listed Node.js 26.13.0 as LTS; check the official page for the current LTS release.
+NOVA does not pin a specific Node.js release. Use a current **LTS** version from the official download page; npm is installed alongside Node.js.
 
 ## 5. Install the frontend packages
 
@@ -119,7 +119,7 @@ Ollama runs NOVA's local language models.
 
 1. Download and install [Ollama for Windows](https://ollama.com/download/windows).
 2. Open a new PowerShell window.
-3. Download the two model variants used by the Alpha 0.5 installer:
+3. Download the two model variants used by NOVA's current default configuration:
 
    ```powershell
    ollama pull qwen3:8b
@@ -144,7 +144,7 @@ NOVA connects to Ollama at `http://127.0.0.1:11434` by default. The local Ollama
 
 Voicebox provides NOVA's local speech recognition and speech generation.
 
-1. For the version targeted by the supplied Alpha 0.5 installer, use the [Voicebox 0.5.0 Windows x64 MSI](https://github.com/jamiepine/voicebox/releases/download/v0.5.0/Voicebox_0.5.0_x64_en-US.msi). The [official Voicebox installation guide](https://docs.voicebox.sh/overview/installation) explains the Windows installation process.
+1. The Alpha 0.5 setup instructions use [Voicebox 0.5.0 for Windows x64](https://github.com/jamiepine/voicebox/releases/download/v0.5.0/Voicebox_0.5.0_x64_en-US.msi). Follow the [official Voicebox installation guide](https://docs.voicebox.sh/overview/installation) to install it.
 2. Double-click the MSI and complete the installation.
 3. Launch Voicebox from the Windows Start menu.
 4. Wait for the Voicebox local server to become ready. The application should show that its backend/server is running.
@@ -154,7 +154,7 @@ Voicebox provides NOVA's local speech recognition and speech generation.
 6. Open Voicebox's voice/profile area and select or create a preset voice profile.
 7. Open NOVA's Voice settings and select a compatible Voicebox profile.
 
-The Alpha 0.5 setup script requests the `whisper-base` and `kokoro` models through Voicebox's local model-management API. Additional engines and voice choices are optional and depend on the Voicebox version and models installed. Voicebox supports multiple TTS engines and preset/custom voice profiles; not every engine is downloaded automatically by NOVA.
+In Voicebox's model manager, download **Whisper Base** for speech-to-text and **Kokoro** for the default text-to-speech path. Additional engines and voice choices are optional and depend on the Voicebox version and models installed. Voicebox supports multiple TTS engines and preset/custom voice profiles; these optional models are not downloaded automatically by NOVA.
 
 Useful Voicebox guides:
 - [Quick Start and voice profiles](https://docs.voicebox.sh/overview/quick-start)
@@ -180,7 +180,7 @@ NOVA's Playwright browser automation supports these desktop browsers:
 3. Keep the browser updated.
 4. When NOVA opens its local interface for the first time, allow microphone access if you plan to use Voice Mode.
 
-NOVA detects a supported Windows default browser. If the default browser is not Brave, Edge, or Chrome, the installer uses Microsoft Edge as its fallback. NOVA does not need you to change your normal browser profile or install a special browser extension.
+NOVA's browser runtime detects a supported Windows default browser. If the default browser is not Brave, Edge, or Chrome, the runtime uses Microsoft Edge as its fallback. NOVA does not need you to change your normal browser profile or install a special browser extension.
 
 The browser automation layer uses Playwright for Python and launches the selected Chromium-based browser with a separate NOVA automation profile. Playwright's documentation notes that using a custom installed browser executable is version-sensitive; using a supported stable browser and keeping it updated is recommended.
 
@@ -256,7 +256,7 @@ NOVA's Playwright automation is no longer tied to Brave alone.
 - Microsoft Edge
 - Google Chrome
 
-The browser runtime detects a supported browser and uses a separate NOVA automation profile for the selected browser. If the Windows default is unsupported, Microsoft Edge is the fallback used by the installer. NOVA does not change the system-wide default browser.
+The browser runtime detects a supported browser and uses a separate NOVA automation profile for the selected browser. If the Windows default is unsupported, Microsoft Edge is the fallback. NOVA does not change the system-wide default browser.
 
 ## 3. Chat and small UI refinements
 
@@ -301,7 +301,7 @@ NOVA uses Ollama's local REST API, including the chat endpoint:
 
 - `POST http://127.0.0.1:11434/api/chat`
 
-The selected model is configured by NOVA's agent. The Alpha 0.5 installer prepares `qwen3:8b` and `qwen3:1.7b`.
+`agent.py` defaults to `qwen3:8b` for planning and browser tasks and `qwen3:1.7b` for faster ordinary chat. The smaller chat model can fall back to the main model if it is not installed. The optional `scripts/preload_nova_models.ps1` helper checks both models and asks Ollama to keep them resident.
 
 Official reference: [Ollama API — chat endpoint](https://docs.ollama.com/api/chat).
 
@@ -337,7 +337,7 @@ The reviewed Alpha 0.5 setup files do not specify an OpenAI, Gemini, or Anthropi
 - `requirements.txt` — Python dependencies.
 - `frontend/` — NOVA's browser-based interface.
 - `nova_browser_runtime.py` — browser detection and browser-specific automation profile support.
-- `apply_browser_compat.py` — development patch utility for browser compatibility.
+- `apply_playwright_browser_compat.py` — development patch utility for browser compatibility.
 - `Startup-Portable.bat` — portable development launcher.
 - `app.py` — legacy Tkinter interface; it is not used by the current browser-based startup path.
 
@@ -355,7 +355,7 @@ The Alpha 0.5 automated regression suite was run locally before publication:
 
 These results cover the automated tests included with this release. They do not represent a clean-machine installation test or guarantee compatibility with every Windows configuration, model, browser, or website.
 
-The current release uses the manual setup instructions above. `Startup-Portable.bat` is a development launcher: it starts the local backend and frontend, but does not install prerequisites or download models. The separate `Install-NOVA.bat` bootstrapper remains experimental and should not be treated as a validated one-click installer.
+The current release uses the manual setup instructions above. `Startup-Portable.bat` is a development launcher: it starts the local backend and frontend, but does not install prerequisites or download models. A one-click installer is not included in this release.
 
 The following areas still need broader real-world validation:
 
@@ -368,7 +368,7 @@ The following areas still need broader real-world validation:
 ## Troubleshooting checklist
 
 - **Python not found:** Reopen PowerShell after installing Python Install Manager. Check `pymanager --version` and `python --version`.
-- **Python dependency error:** Confirm `.venv` was created with Python 3.14.7 and rerun `pip install -r requirements.txt` using `.venv\Scripts\python.exe`.
+- **Python dependency error:** Confirm `.venv` was created with Python 3.11 or newer and rerun `pip install -r requirements.txt` using `.venv\Scripts\python.exe`.
 - **npm not found:** Install Node.js LTS, reopen the terminal, and check `node --version` and `npm --version`.
 - **Ollama is unavailable:** Open Ollama and run `ollama list`. Confirm the local API responds at `http://127.0.0.1:11434/api/tags`.
 - **Voicebox is unavailable:** Open Voicebox and wait for its local server to become ready. Check `http://127.0.0.1:17493/models/status`.
@@ -394,7 +394,7 @@ The following areas still need broader real-world validation:
 - [Microsoft Edge Stable](https://www.microsoft.com/edge/download)
 - [Google Chrome](https://www.google.com/chrome/)
 - [Playwright for Python](https://playwright.dev/python/docs/browsers)
-- [Microsoft WinGet / App Installer](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
+
 
 ---
 
