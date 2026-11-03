@@ -1,9 +1,12 @@
-# NOVA Alpha 0.5 — Voice & Browser Expansion
+# NOVA Alpha 0.5 — Voice and UI Update
 
 **Release tag:** `v0.5.0-alpha`
-**Release theme:** A more natural voice experience, with more freedom in browser automation.
 
-NOVA Alpha 0.5 brings a substantial expansion to Voice Mode and browser compatibility. The headline feature is the new voice experience: online and local speech recognition, live transcription, multiple voice profiles, and local speech generation through Voicebox.
+NOVA Alpha 0.5 is a major update centred around a complete voice interaction experience, including dedicated Voice Mode, local and online speech recognition, and local text-to-speech through Voicebox.
+
+This release also introduces a refreshed interface with the Mercury Orb, improved multilingual support, expanded browser compatibility, a more structured multi-agent architecture, and significant reliability improvements.
+
+The goal is to make NOVA a more natural, capable, and locally powered AI assistant.
 
 ---
 
