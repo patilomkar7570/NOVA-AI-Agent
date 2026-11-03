@@ -347,21 +347,23 @@ Keep the development tools and backups until a later cleanup. The current Alpha 
 
 # 🧪 Validation status and known limitations
 
-The supplied validation report records:
+The Alpha 0.5 automated regression suite was run locally before publication:
 
-- 3 Python unit tests passed.
-- Static syntax checks passed for the browser runtime and compatibility patcher.
-- Static parsing passed for the patched agent and API.
+- **81 Python regression tests passed.**
+- **25 frontend voice tests passed.**
+- **106 total tests passed; 0 failed.**
 
-The following were **not** completed in the supplied validation report:
+These results cover the automated tests included with this release. They do not represent a clean-machine installation test or guarantee compatibility with every Windows configuration, model, browser, or website.
 
-- A full clean installation on Windows.
-- Real WinGet installation of all dependencies.
-- Full microphone and speech-recognition testing across Brave, Edge, and Chrome.
-- Complete model download and load testing on real hardware.
-- Clean-machine end-to-end testing of the installer.
+The current release uses the manual setup instructions above. `Startup-Portable.bat` is a development launcher: it starts the local backend and frontend, but does not install prerequisites or download models. The separate `Install-NOVA.bat` bootstrapper remains experimental and should not be treated as a validated one-click installer.
 
-For this reason, the automated `Install-NOVA.bat` bootstrapper remains a prototype until those checks are completed. Do not advertise it as a production-ready public installer yet.
+The following areas still need broader real-world validation:
+
+- Clean installation on a separate Windows machine.
+- Microphone and speech-recognition testing across supported browsers and audio devices.
+- Full local model download and load testing across different hardware configurations.
+- End-to-end Voice Mode testing with different Voicebox profiles and languages.
+- Browser automation testing across a wider range of websites and login/consent flows.
 
 ## Troubleshooting checklist
 
