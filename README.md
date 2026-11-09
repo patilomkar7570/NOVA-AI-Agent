@@ -8,6 +8,9 @@ This release also introduces a refreshed interface with the Mercury Orb, improve
 
 The goal is to make NOVA a more natural, capable, and locally powered AI assistant.
 
+**NOVA is the core AI assistant project in the NOVA ecosystem.**
+
+
 ---
 
 # ⬇️ Installation & Setup
