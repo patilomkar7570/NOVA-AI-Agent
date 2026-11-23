@@ -72,6 +72,13 @@ nova_website_memory.sqlite3
 nova_website_memory.sqlite3-shm
 nova_website_memory.sqlite3-wal
 
+nova_desktop_memory.sqlite3
+nova_desktop_memory.sqlite3-shm
+nova_desktop_memory.sqlite3-wal
+
+# Desktop capture and vision snapshots
+screenshots/
+
 # ============================================================
 # Local model downloads and model caches
 # Do not commit model weights. Setup/first-run should download them.
@@ -99,6 +106,8 @@ audio_cache/
 # Secrets and local configuration
 # Commit an .env.example with placeholder names only, never real values.
 # ============================================================
+nova_model_settings.json
+!nova_model_settings.example.json
 .env
 .env.*
 !.env.example

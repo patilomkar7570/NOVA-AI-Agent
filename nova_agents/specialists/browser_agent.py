@@ -21,11 +21,23 @@ class _TeeOutput(io.TextIOBase):
         if not text:
             return 0
         self.buffer.write(text)
-        self.target.write(text)
+        try:
+            self.target.write(text)
+        except UnicodeEncodeError:
+            try:
+                encoding = getattr(self.target, "encoding", None) or "ascii"
+                self.target.write(text.encode(encoding, errors="replace").decode(encoding))
+            except Exception:
+                pass
+        except Exception:
+            pass
         return len(text)
 
     def flush(self) -> None:
-        self.target.flush()
+        try:
+            self.target.flush()
+        except Exception:
+            pass
 
 
 class BrowserAgent:
@@ -34,6 +46,121 @@ class BrowserAgent:
     def __init__(self, agent_module, memory=None):
         self.agent = agent_module
         self.memory = memory
+
+    @staticmethod
+    def _is_informational_request(command: str) -> bool:
+        cmd = command.lower().strip()
+        info_keywords = (
+            "summarize", "summarise", "summary", "explain", "tell me",
+            "what is", "what are", "who is", "breakthrough", "breakthroughs",
+            "news", "updates", "findings", "find out", "research", "details",
+            "overview", "look up", "how to", "why does", "what does",
+            "article", "content", "information", "latest"
+        )
+        return any(k in cmd for k in info_keywords) or cmd.endswith("?")
+
+    def _synthesize_page_findings(self, command: str, observed: dict) -> str:
+        if not isinstance(observed, dict):
+            return ""
+        ai_overview = str(observed.get("ai_overview") or "").strip()
+        search_results = observed.get("search_results") or []
+        article_content = str(observed.get("article_content") or "").strip()
+        page_title = str(observed.get("title") or "").strip()
+
+        evidence_blocks = []
+        if ai_overview:
+            evidence_blocks.append(f"AI OVERVIEW / DIRECT SUMMARY:\n{ai_overview}")
+        if search_results and isinstance(search_results, list):
+            res_lines = []
+            for item in search_results[:6]:
+                if not isinstance(item, dict):
+                    continue
+                t = str(item.get("title") or "").strip()
+                s = str(item.get("snippet") or "").strip()
+                if t or s:
+                    res_lines.append(f"- {t}: {s}")
+            if res_lines:
+                evidence_blocks.append("SEARCH RESULTS & SOURCES:\n" + "\n".join(res_lines))
+        if article_content:
+            evidence_blocks.append(f"ARTICLE CONTENT:\n{article_content[:4000]}")
+
+        if not evidence_blocks:
+            interactive = observed.get("interactive") or []
+            if isinstance(interactive, list) and interactive:
+                inter_items = []
+                for item in interactive[:8]:
+                    if isinstance(item, dict):
+                        role = item.get("role", "element")
+                        txt = str(item.get("text") or item.get("aria_label") or "").strip()
+                        if txt:
+                            inter_items.append(f"- [{item.get('nova_id')}] {role}: {txt}")
+                if inter_items:
+                    evidence_blocks.append("PAGE INTERACTIVE ELEMENTS:\n" + "\n".join(inter_items))
+
+        if not evidence_blocks:
+            body_text = str(observed.get("text") or "").strip()
+            if len(body_text) > 80:
+                evidence_blocks.append(f"PAGE EXCERPT:\n{body_text[:3000]}")
+
+        if not evidence_blocks:
+            return ""
+
+        combined_evidence = "\n\n".join(evidence_blocks)
+
+        # 1. Try fast model synthesis if available
+        chat_fn = getattr(self.agent, "chat", None)
+        if callable(chat_fn):
+            try:
+                model_name = str(getattr(self.agent, "FAST_CHAT_MODEL", getattr(self.agent, "MODEL", "qwen3:8b")))
+                response = chat_fn(
+                    model=model_name,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are NOVA's real-time web synthesis specialist. Provide a clear, structured, well-formatted "
+                                "Markdown summary directly answering the user's request from the observed web page evidence. "
+                                "Use concise bullet points and a brief **Summary:** line. Do NOT output raw input commands or action logs."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": f"USER REQUEST:\n{command}\n\nOBSERVED WEB PAGE EVIDENCE:\n{combined_evidence}",
+                        },
+                    ],
+                    think=False,
+                    keep_alive="20m",
+                    options={"num_predict": 300, "num_ctx": int(getattr(self.agent, "QWEN_CONTEXT", 2048)), "temperature": 0.2},
+                )
+                content = str(getattr(getattr(response, "message", None), "content", "") or "").strip()
+                if content and len(content) > 30:
+                    return content
+            except Exception:
+                pass
+
+        # 2. Deterministic high-quality structured response
+        title_heading = f"### {page_title or 'Web Findings'} 🚀\n\n"
+        sections = []
+        if ai_overview:
+            sections.append(f"**Key Overview:**\n{ai_overview}\n")
+        if search_results and isinstance(search_results, list):
+            sections.append("**Top Highlights & Breakthroughs:**")
+            for item in search_results[:5]:
+                if not isinstance(item, dict):
+                    continue
+                t = str(item.get("title") or "").strip()
+                s = str(item.get("snippet") or "").strip()
+                if t and s:
+                    sections.append(f"- **{t}**: {s}")
+                elif t:
+                    sections.append(f"- **{t}**")
+        elif article_content:
+            sections.append(f"**Article Summary:**\n{article_content[:900]}...")
+
+        if sections:
+            return title_heading + "\n".join(sections) + f"\n\n**Summary:** Successfully scanned {page_title or 'the page'} and synthesized the latest findings."
+        return ""
+
 
     @staticmethod
     def _final_answer(output: str) -> str:
@@ -54,7 +181,33 @@ class BrowserAgent:
             if item.strip() and item.strip().lower() not in {"task complete.", "task complete"}
         ]
         if action_results:
-            return "Done — " + action_results[-1]
+            last = action_results[-1].strip()
+            # Clean up URLs for natural voice/chat feedback when URL is raw
+            url_match = re.search(r"^Opened\s+(https?://[^\s]+)$", last, re.I)
+            if url_match:
+                from urllib.parse import urlsplit, parse_qs
+                parsed = urlsplit(url_match.group(1))
+                domain = (parsed.hostname or "").lower().removeprefix("www.").removeprefix("en.").removeprefix("m.")
+                if "google." in domain and parsed.path.startswith("/search"):
+                    qs = parse_qs(parsed.query)
+                    q = (qs.get("q") or [""])[0]
+                    clean_term = q.replace("+", " ").strip()
+                    return f"### Web Search: {clean_term}\n\nOpened search results for **{clean_term}**. Top findings and live links are displayed on screen." if clean_term else "Searched Google and displayed top results."
+                domain_names = {
+                    "youtube.com": "YouTube",
+                    "github.com": "GitHub",
+                    "reddit.com": "Reddit",
+                    "twitter.com": "X",
+                    "x.com": "X",
+                    "wikipedia.org": "Wikipedia",
+                    "amazon.com": "Amazon",
+                    "netflix.com": "Netflix",
+                    "discord.com": "Discord",
+                    "whatsapp.com": "WhatsApp",
+                }
+                site_name = domain_names.get(domain) or (domain.split(".")[0].capitalize() if domain else "page")
+                return f"Opened {site_name}."
+            return "Done — " + last
         return "The browser task finished, but the page did not provide a separate answer."
 
     def execute(self, request: TaskRequest) -> AgentResult:
@@ -84,7 +237,25 @@ class BrowserAgent:
             }
             evidence: list[dict[str, str]] = []
             page = getattr(self.agent, "_page", None)
+            if page is not None:
+                try:
+                    # Wait briefly for dynamic results (e.g. Gemini AI Overview, search listings) to settle
+                    page.wait_for_load_state("domcontentloaded", timeout=2000)
+                except Exception:
+                    pass
+
             observed_page_text = ""
+            observed_dict: dict[str, object] = {}
+            observer = getattr(self.agent, "observe_page", None)
+            if callable(observer):
+                try:
+                    observed = observer()
+                    if isinstance(observed, dict):
+                        observed_dict = observed
+                        observed_page_text = str(observed.get("text") or "")[:12000]
+                except Exception:
+                    pass
+
             if page is not None:
                 try:
                     is_closed = bool(page.is_closed()) if callable(getattr(page, "is_closed", None)) else False
@@ -92,13 +263,6 @@ class BrowserAgent:
                         current_url = str(getattr(page, "url", "") or "")
                         title_value = page.title() if callable(getattr(page, "title", None)) else ""
                         title = str(title_value or "")[:300]
-                        observer = getattr(self.agent, "observe_page", None)
-                        if callable(observer):
-                            try:
-                                observed = observer()
-                                observed_page_text = str(observed.get("text") or "")[:12000] if isinstance(observed, dict) else ""
-                            except Exception:
-                                observed_page_text = ""
                         verification.update({
                             "page_observed": bool(current_url),
                             "level": "live_page_observation" if current_url else "console_marker",
@@ -109,6 +273,25 @@ class BrowserAgent:
                             evidence.append({"type": "page", "url": current_url[:2000], "title": title})
                 except Exception as verify_exc:
                     verification["verification_warning"] = f"Could not inspect final page: {type(verify_exc).__name__}"
+
+            som_candidates = observed_dict.get("interactive") or []
+            som_count = len(som_candidates) if isinstance(som_candidates, list) else 0
+            verification.update({
+                "som_count": som_count,
+                "has_search_results": bool(observed_dict.get("search_results")),
+                "has_ai_overview": bool(observed_dict.get("ai_overview")),
+                "has_article_content": bool(observed_dict.get("article_content")),
+            })
+            if observed_dict.get("search_results") and isinstance(observed_dict.get("search_results"), list):
+                for res in observed_dict["search_results"][:5]:
+                    if isinstance(res, dict) and (res.get("url") or res.get("title")):
+                        evidence.append({
+                            "type": "search_result",
+                            "url": str(res.get("url") or "")[:2000],
+                            "title": str(res.get("title") or "")[:200],
+                            "snippet": str(res.get("snippet") or "")[:300],
+                        })
+
             result.data = {
                 "console_output": output[-12000:],
                 "verification": verification,
@@ -122,7 +305,20 @@ class BrowserAgent:
                 result.message = "I stopped the browser task. You can give me a revised instruction whenever you're ready."
             elif "🎉 Task complete." in output or "Task complete." in output:
                 result.status = "completed"
-                result.message = self._final_answer(output)
+                orig_cmd = str(request.context.get("original_command") or request.command)
+                wants_info = self._is_informational_request(orig_cmd)
+                final_ans = self._final_answer(output)
+
+                if "📌 ANSWER" in output and final_ans:
+                    result.message = final_ans
+                else:
+                    synthesized = ""
+                    if wants_info and observed_dict:
+                        synthesized = self._synthesize_page_findings(orig_cmd, observed_dict)
+                    if synthesized:
+                        result.message = synthesized
+                    else:
+                        result.message = final_ans
                 risk = classify_action_risk(
                     str(request.context.get("original_command") or request.command), request.command
                 )

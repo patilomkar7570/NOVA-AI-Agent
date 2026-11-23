@@ -14,7 +14,7 @@ from .planner import TaskPlanner
 from .policy import classify_action_risk
 from .registry import agent_capabilities, agent_ids
 from .router import TaskRouter
-from .specialists import BrowserAgent, ChatAgent, ResearchAgent
+from .specialists import BrowserAgent, ChatAgent, CoderAgent, ComputerAgent, ResearchAgent
 from .specialists.reaction_agent import ReactionAgent
 
 
@@ -22,13 +22,15 @@ _ALLOWED_AGENTS = frozenset(agent_ids())
 _DEFAULT_TIMEOUTS = {
     "reaction": 8.0,
     "chat": 75.0,
+    "coder": 90.0,
     "browser": 150.0,
     "research": 150.0,
+    "computer": 120.0,
 }
 # Browser actions are not automatically retried: a failed response does not
 # prove that a click/navigation had no external side effect.
-_DEFAULT_RETRIES = {"reaction": 0, "chat": 1, "browser": 0, "research": 1}
-_MAX_PLAN_STEPS = 3
+_DEFAULT_RETRIES = {"reaction": 0, "chat": 1, "coder": 1, "browser": 0, "research": 1, "computer": 0}
+_MAX_PLAN_STEPS = 6
 
 
 class Orchestrator:
@@ -50,8 +52,10 @@ class Orchestrator:
         self.specialists = {
             "reaction": ReactionAgent(agent_module, memory=self.memory),
             "chat": ChatAgent(agent_module, memory=self.memory),
+            "coder": CoderAgent(agent_module, memory=self.memory),
             "browser": BrowserAgent(agent_module, memory=self.memory),
             "research": ResearchAgent(agent_module, memory=self.memory),
+            "computer": ComputerAgent(agent_module, memory=self.memory),
         }
         registered = set(agent_ids())
         wired = set(self.specialists)
@@ -257,11 +261,12 @@ class Orchestrator:
         cancellation_event: threading.Event | None = None,
         response_callback=None,
         language: str = "auto",
+        agent_mode: str = "auto",
     ) -> AgentResult:
         self._active_cancel_event = cancellation_event or threading.Event()
         from .language import normalize_language
         request = self.router.route(command, conversation_id=conversation_id)
-        request = replace(request, context={**dict(request.context or {}), "language": normalize_language(language, default="auto")})
+        request = replace(request, context={**dict(request.context or {}), "language": normalize_language(language, default="auto"), "agent_mode": str(agent_mode or "auto").strip().lower()})
         if task_id:
             request = replace(request, task_id=str(task_id)[:128])
         self._current_task_id = request.task_id
@@ -355,13 +360,13 @@ class Orchestrator:
                 break
 
             approval_audit = {"required": False, "approved": None}
-            if step.agent == "browser":
+            if step.agent in {"browser", "computer"}:
                 risk_assessment = classify_action_risk(request.command, step.objective)
                 if risk_assessment.get("blocked"):
                     final_result = AgentResult(
                         task_id=request.task_id, agent="policy", status="stopped",
                         message=str(risk_assessment["reason"]),
-                        errors=["Critical browser action blocked by local NOVA policy."],
+                        errors=[f"Critical {step.agent} action blocked by local NOVA policy."],
                         data={"risk_assessment": risk_assessment},
                     ).finish()
                     self._event(
@@ -372,9 +377,9 @@ class Orchestrator:
                 if risk_assessment["requires_approval"]:
                     risk = str(risk_assessment["reason"])
                     approval_started = time.time()
-                    self._set_state("awaiting_approval", "Waiting for your approval before the browser action can continue.", agent=step.agent, step=step_index)
+                    self._set_state("awaiting_approval", f"Waiting for your approval before the {step.agent} action can continue.", agent=step.agent, step=step_index)
                     self._event(
-                        f"🛡️ Browser action classified as {risk_assessment['risk_level']} impact; waiting for explicit user approval.",
+                        f"🛡️ {step.agent.title()} action classified as {risk_assessment['risk_level']} impact; waiting for explicit user approval.",
                         agent=step.agent, step=step_index, event="approval_required",
                     )
                     approved, detail = self._approval(
@@ -405,14 +410,14 @@ class Orchestrator:
                             agent="orchestrator",
                             status="stopped",
                             message=(
-                                "I did not perform that browser action because it was not approved. "
+                                f"I did not perform that {step.agent} action because it was not approved. "
                                 + detail
                             ),
                             data={"approval": approval_audit},
                         ).finish()
                         break
                     self._set_state("executing", "Approval received. NOVA is continuing the task.", agent=step.agent, step=step_index)
-                    self._event("✅ User approved the high-impact browser action.", agent=step.agent, step=step_index, event="approval_granted")
+                    self._event(f"✅ User approved the high-impact {step.agent} action.", agent=step.agent, step=step_index, event="approval_granted")
 
             available, unavailable_reason = self._ensure_specialist_available(step.agent)
             if not available:
@@ -460,6 +465,7 @@ class Orchestrator:
                     "total_steps": len(plan.steps),
                     "attempt": attempt + 1,
                     "language": request.context.get("language", "auto"),
+                    "cancellation_event": self._active_cancel_event,
                 })
                 if step.agent == "chat" and callable(response_callback):
                     # This callback is an in-process runtime hook, not user input
@@ -586,6 +592,45 @@ class Orchestrator:
             if final_result.status in {"completed", "partial"}:
                 previous_results.append(final_result.to_handoff())
             if final_result.status != "completed":
+                # Check for dynamic reflection replan before aborting
+                replan_fn = getattr(self.planner, "reflect_and_replan", None)
+                recovery_step = replan_fn(request, step, final_result, completed_steps) if callable(replan_fn) else None
+                if recovery_step is not None and not self._stop_requested() and len(completed_steps) < _MAX_PLAN_STEPS:
+                    self._event(
+                        f"🔄 Reflection Engine: Step failed ({final_result.status}). Auto-replanning: {recovery_step.reason}",
+                        kind="info", agent=recovery_step.agent, step=step_index, event="reflection_replan",
+                    )
+                    rec_spec = self.specialists.get(recovery_step.agent)
+                    if rec_spec is not None:
+                        rec_req = replace(
+                            request,
+                            command=recovery_step.objective,
+                            context={
+                                **dict(recovery_step.input_data or {}),
+                                "original_command": request.command,
+                                "previous_results": previous_results,
+                                "failed_step": {"agent": step.agent, "message": final_result.message},
+                            },
+                        )
+                        try:
+                            rec_res = rec_spec.execute(rec_req)
+                            if isinstance(rec_res, AgentResult):
+                                if rec_res.finished_at is None:
+                                    rec_res.finish()
+                                final_result = rec_res
+                                completed_steps.append({
+                                    "agent": recovery_step.agent,
+                                    "status": final_result.status,
+                                    "message": final_result.message,
+                                    "attempts": 1,
+                                    "duration_ms": final_result.duration_ms,
+                                })
+                                if final_result.status in {"completed", "partial"}:
+                                    previous_results.append(final_result.to_handoff())
+                                    self._event(f"✅ Recovery {recovery_step.agent.title()} step succeeded.", agent=recovery_step.agent, step=step_index, event="recovery_succeeded")
+                                    continue
+                        except Exception as rec_err:
+                            self._event(f"⚠️ Recovery step encountered error: {rec_err}", kind="error", agent=recovery_step.agent)
                 break
 
         # One bounded recovery/synthesis step is allowed after partial work. It is
@@ -723,3 +768,11 @@ class Orchestrator:
             )
         except Exception as exc:
             self._event(f"⚠️ Shared memory write failed: {exc}")
+        try:
+            import desktop_memory
+            if result.message and result.status in {"completed", "partial"}:
+                desktop_memory.save_last_assistant_output(
+                    result.message, conversation_id=request.conversation_id
+                )
+        except Exception:
+            pass

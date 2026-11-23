@@ -318,6 +318,12 @@ export function createVoicePlaybackQueue({
     resolveCompletion?.()
   }
 
+  const bargeIn = () => {
+    // Zero-latency barge-in: cancel and flush speaker audio immediately when user begins speaking
+    stopCurrentSource()
+    cancel()
+  }
+
   return {
     start,
     startStreaming,
@@ -326,6 +332,7 @@ export function createVoicePlaybackQueue({
     pause,
     resume,
     cancel,
+    bargeIn,
     dispose: cancel,
     isPlaying: () => playbackActive,
     isPaused: () => paused,

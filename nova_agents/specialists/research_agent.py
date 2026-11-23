@@ -127,6 +127,36 @@ class ResearchAgent:
             message="Research could not be completed.",
         )
         try:
+            prev_results = request.context.get("previous_results") or []
+            page_handle = getattr(self.agent, "_page", None)
+            observer = getattr(self.agent, "observe_page", None)
+
+            # 1. Pipeline handoff: if preceding browser step already navigated to a page, inspect it directly
+            if prev_results and callable(observer):
+                last_browser = next((p for p in reversed(prev_results) if isinstance(p, dict) and p.get("agent") == "browser"), None)
+                if last_browser:
+                    try:
+                        obs = observer()
+                        if isinstance(obs, dict):
+                            body = str(obs.get("text") or obs.get("article_content") or "").strip()
+                            if len(body) > 80:
+                                page_url = str(obs.get("url") or "")
+                                page_title = str(obs.get("title") or "Observed Article")
+                                pub_date = self._published_date_from_page(page_handle, obs)
+                                sources = [{
+                                    "url": page_url,
+                                    "title": page_title,
+                                    "published_at": pub_date,
+                                    "excerpt": body[:self.MAX_SOURCE_CHARS * 2],
+                                }]
+                                summary = self._synthesise(request.command, sources, request.context.get("language", "auto"))
+                                result.status = "completed"
+                                result.message = summary
+                                result.data = {"sources": sources, "inspected_count": 1, "page_title": page_title}
+                                return result.finish()
+                    except Exception:
+                        pass
+
             print("🔎 Research Agent: searching for relevant sources…")
             queries = self._search_queries(request.command)
             candidate_map: dict[str, dict] = {}

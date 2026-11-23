@@ -1,2 +1,4 @@
 ollama
 playwright
+pywinauto
+pypdf>=5.0.0

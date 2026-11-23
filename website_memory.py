@@ -119,9 +119,11 @@ def save_locator(domain, path, action, target, locator_type, locator_value):
 def record_locator_result(locator_id, success):
     _init_db()
     now = int(time.time())
-    column = "success_count" if success else "failure_count"
     with _connect() as db:
-        db.execute(f"UPDATE locators SET {column}={column}+1,last_used=? WHERE id=?", (now, int(locator_id)))
+        if success:
+            db.execute("UPDATE locators SET success_count=success_count+1,last_used=? WHERE id=?", (now, int(locator_id)))
+        else:
+            db.execute("UPDATE locators SET failure_count=failure_count+1,last_used=? WHERE id=?", (now, int(locator_id)))
 
 
 def get_recipe(command):
@@ -235,12 +237,15 @@ _WORKFLOW_RISK_TERMS = re.compile(
 )
 
 
-def save_workflow(command, start_url, end_url, actions):
+def save_workflow(command, start_url, end_url, actions, verified=True):
     """Save a verified, low-risk workflow, scoped to its starting website/page.
 
+    Only workflows that produced a verified, successful outcome are persisted.
     Text entry, arbitrary key submission, and search queries are intentionally excluded
     from workflow replay; they remain supported by live semantic interaction and locator memory.
     """
+    if not verified:
+        return False
     command_text = re.sub(r"\s+", " ", str(command or "")).strip()
     key = normalize_command(command_text)
     start_host, start_path = _url_scope(start_url)
@@ -279,13 +284,41 @@ def save_workflow(command, start_url, end_url, actions):
             ON CONFLICT(command_key,start_host,start_path) DO UPDATE SET
                 command=excluded.command, actions_json=excluded.actions_json,
                 end_host=excluded.end_host, end_path=excluded.end_path,
-                success_count=workflows.success_count+1, updated_at=excluded.updated_at""",
+                success_count=workflows.success_count+1, failure_count=0, updated_at=excluded.updated_at""",
             (key, start_host, start_path, command_text[:300], payload, end_host, end_path, now))
     return True
 
 
+def record_workflow_failure(command, start_url):
+    """Demote or eliminate a learned workflow that failed during execution."""
+    key = normalize_command(command)
+    host, path = _url_scope(start_url)
+    if not key or not host:
+        return
+    _init_db()
+    now = int(time.time())
+    with _connect() as db:
+        db.execute("""UPDATE workflows
+            SET failure_count = failure_count + 1, updated_at = ?
+            WHERE command_key = ? AND start_host = ? AND start_path = ?""", (now, key, host, path))
+        db.execute("""DELETE FROM workflows
+            WHERE command_key = ? AND start_host = ? AND start_path = ? AND failure_count >= success_count""",
+            (key, host, path))
+
+
+def delete_workflow(command, start_url):
+    """Explicitly delete a learned workflow."""
+    key = normalize_command(command)
+    host, path = _url_scope(start_url)
+    if not key or not host:
+        return
+    _init_db()
+    with _connect() as db:
+        db.execute("DELETE FROM workflows WHERE command_key = ? AND start_host = ? AND start_path = ?", (key, host, path))
+
+
 def get_workflow(command, start_url):
-    """Return a learned workflow only when its starting host/path match exactly."""
+    """Return a learned workflow only when its starting host/path match exactly and success outweighs failure."""
     key = normalize_command(command)
     host, path = _url_scope(start_url)
     if not key or not host:
@@ -293,8 +326,8 @@ def get_workflow(command, start_url):
     _init_db()
     with _connect() as db:
         row = db.execute("""SELECT * FROM workflows
-            WHERE command_key=? AND start_host=? AND start_path=?
-            ORDER BY success_count DESC, updated_at DESC LIMIT 1""", (key, host, path)).fetchone()
+            WHERE command_key=? AND start_host=? AND start_path=? AND success_count > failure_count
+            ORDER BY (success_count - failure_count) DESC, success_count DESC, updated_at DESC LIMIT 1""", (key, host, path)).fetchone()
     if not row:
         return None
     try:

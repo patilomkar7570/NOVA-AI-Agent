@@ -73,3 +73,15 @@ The **licensor** is the individual or entity offering these terms, and the **sof
 **Your licenses** are all the licenses granted to you for the software under these terms.
 
 **Use** means anything you do with the software requiring one of your licenses.
+
+---
+
+## Third-Party Components & Notices
+
+NOVA incorporates third-party software, libraries, and design components licensed under permissive open-source licenses (including MIT and Apache-2.0). These components remain subject to their original license terms.
+
+For a comprehensive inventory of third-party software, attributions, source links, and complete license texts, please see:
+- [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- [LICENSES/](LICENSES/)
+- [LICENSES/third-party/](LICENSES/third-party/)
+

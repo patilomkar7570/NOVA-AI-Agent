@@ -75,6 +75,16 @@ class PlanStep:
 
 
 @dataclass(frozen=True)
+class StepCritique:
+    """Outcome validation and self-critique evaluation of a completed specialist step."""
+    satisfied: bool
+    confidence: float = 1.0
+    critique_notes: str = ""
+    suggested_recovery_agent: str | None = None
+    suggested_recovery_objective: str | None = None
+
+
+@dataclass(frozen=True)
 class ExecutionPlan:
     task_id: str
     steps: list[PlanStep]
@@ -82,6 +92,8 @@ class ExecutionPlan:
     source: str = "rules"
     confidence: float = 0.0
     clarification_required: bool = False
+    is_dynamic_replanned: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

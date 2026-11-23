@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
-import heroPhoto from './assets/nova-hero-photo.png'
+import './styles/nova-bronze-theme.css'
 import { startWavBackup, startMicLevelMonitor, transcribeWithVoicebox } from './voice/voiceController.js'
 import { createVoicePlaybackQueue } from './voice/voicePlaybackQueue.js'
 import { startVoiceActivityCapture, transcribeVoiceSegment } from './voice/voiceActivityController.js'
@@ -9,6 +9,9 @@ import { NOVA_CONVERSATION_LANGUAGES, normalizeConversationLanguage, getBrowserR
 import { ensureBrowserOnDeviceRecognition, getBrowserOnDeviceRecognitionLocales, getBrowserSpeechRecognitionConstructor } from './voice/browserSpeechRecognition.js'
 import { MercuryOrb } from './components/voiceorbs/orbe/mercury-orb'
 import { ResponseStream } from './components/prompt-kit/response-stream.jsx'
+import CapybaraLoader from './components/loader/CapybaraLoader.jsx'
+import ModelSelector from './components/selector/ModelSelector.jsx'
+import ModelsSettings from './components/settings/ModelsSettings.jsx'
 
 
 const ACCENT_THEMES = [
@@ -19,6 +22,21 @@ const ACCENT_THEMES = [
   { id: 'amber', name: 'Amber', primary: '#a9772f', hover: '#8c6124', light: '#d3b782', highlight: '#e1caa0', soft: '#f5eedf', sidebar: '#eee5d2', curveBack: '#e1d3b7', curveFront: '#d8c7a4' },
   { id: 'teal', name: 'Teal', primary: '#247e7b', hover: '#176a67', light: '#9fc8c4', highlight: '#b5dad5', soft: '#e0f0ee', sidebar: '#d9eae6', curveBack: '#c0dbd5', curveFront: '#afd0c7' },
   { id: 'graphite', name: 'Graphite', primary: '#536575', hover: '#414f5d', light: '#aebcc8', highlight: '#c1ccd5', soft: '#e8edf1', sidebar: '#dfe5e9', curveBack: '#cbd5dc', curveFront: '#bac7d0' },
+  {
+    id: 'bronze',
+    name: 'NOVA Bronze',
+    special: true,
+    tag: 'Special Theme',
+    subtitle: 'Editorial & Luxury Edition',
+    primary: '#a68b64',
+    hover: '#93764b',
+    light: '#d8c7a4',
+    highlight: '#e1caa0',
+    soft: '#f7f4ec',
+    sidebar: '#efebe1',
+    curveBack: '#e5e0d5',
+    curveFront: '#dcd6c8',
+  },
 ]
 
 function SendArrowIcon() {
@@ -631,6 +649,24 @@ const [task, setTask] = useState('')
   const activeVoiceInputModeRef = useRef(null)
   const [activeVoiceInputMode, setActiveVoiceInputMode] = useState(null)
   const autoFallbackStartedRef = useRef(false)
+  const [agentMode, setAgentMode] = useState(() => {
+    const saved = localStorage.getItem('nova-agent-mode')
+    return ['auto', 'browser', 'desktop'].includes(saved) ? saved : 'auto'
+  })
+
+  const handleModeChange = useCallback(async (newMode) => {
+    setAgentMode(newMode)
+    localStorage.setItem('nova-agent-mode', newMode)
+    try {
+      await fetch('http://127.0.0.1:8000/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode }),
+      })
+    } catch (err) {
+      console.debug('Failed to sync agent mode with backend:', err)
+    }
+  }, [])
 
   // Full-screen Voice Mode uses a single local microphone stream for the orb
   // meter and continuous VAD. Only completed speech segments are sent to the
@@ -705,7 +741,7 @@ const [task, setTask] = useState('')
   })
   const [accentTheme, setAccentTheme] = useState(() => {
     const saved = localStorage.getItem('nova-accent-theme')
-    return ACCENT_THEMES.some((theme) => theme.id === saved) ? saved : 'sage'
+    return ACCENT_THEMES.some((theme) => theme.id === saved) ? saved : 'bronze'
   })
   const [conversationLanguage, setConversationLanguage] = useState(() => normalizeConversationLanguage(localStorage.getItem('nova-conversation-language'), 'en'))
   const [settingsTab, setSettingsTab] = useState('display')
@@ -1358,6 +1394,7 @@ const [task, setTask] = useState('')
           chat_id: saved.chatId,
           voice_stream: voiceStreamingEnabled,
           language: conversationLanguage,
+          mode: agentMode,
         }),
       })
       const data = await response.json()
@@ -2676,13 +2713,6 @@ const [task, setTask] = useState('')
 
         {activeSection === 'home' && (
           <>
-          {/* Photo */}
-
-        <div className="hero-image">
-          <img src={heroPhoto} alt="" />
-        </div>
-
-
         {/* Organic main curve */}
 
         <svg
@@ -2753,12 +2783,11 @@ const [task, setTask] = useState('')
             NOVA will plan the next steps.
           </p>
 
-
           {/* Command bar */}
-
           <div
             className={`task-box ${listening || localTranscribing ? 'voice-active' : ''}`}
           >
+            {(running || taskStarting) && <CapybaraLoader />}
             {listening ? (
               <div className="voice-capture">
                 <div className="voice-capture-copy">
@@ -2789,6 +2818,7 @@ const [task, setTask] = useState('')
                   }}
                   placeholder="Ask me to do anything..."
                 />
+                <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} />
                 <button
                   className="microphone"
                   aria-label="Start voice input"
@@ -2802,6 +2832,17 @@ const [task, setTask] = useState('')
                 >
                   <MicIcon />
                 </button>
+                {!listening && !localTranscribing && (
+                  <button
+                    type="button"
+                    className={`send-button ${taskStarting ? 'is-starting' : ''} ${!task.trim() && !running && !stopArmed ? 'is-voice-entry' : ''}`}
+                    onClick={handleActionButton}
+                    disabled={taskStarting}
+                    aria-label={taskStarting ? 'Starting task' : running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : task.trim() ? 'Send task' : 'Open voice mode'}
+                  >
+                    {taskStarting ? <span className="send-spinner" /> : running || stopArmed ? <StopSquareIcon /> : task.trim() ? <SendArrowIcon /> : <VoiceModeIcon />}
+                  </button>
+                )}
               </>
             )}
 
@@ -2819,30 +2860,10 @@ const [task, setTask] = useState('')
               </button>
             )}
 
-            {!listening && !localTranscribing && (
-              <button
-                type="button"
-                className={`send-button ${taskStarting ? 'is-starting' : ''} ${!task.trim() && !running && !stopArmed ? 'is-voice-entry' : ''}`}
-                onClick={handleActionButton}
-                disabled={taskStarting}
-                aria-label={taskStarting ? 'Starting task' : running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : task.trim() ? 'Send task' : 'Open voice mode'}
-              >
-                {taskStarting ? <span className="send-spinner" /> : running || stopArmed ? <StopSquareIcon /> : task.trim() ? <SendArrowIcon /> : <VoiceModeIcon />}
-              </button>
-            )}
-
           </div>
 
-          <div className={`backend-status ${backendOnline ? 'online' : ''} ${(voiceNotice || statusMessage) ? 'visible' : ''}`}>
-            <span className="backend-dot"></span>
-            <span>{voiceNotice || statusMessage || (backendOnline ? 'NOVA backend ready' : 'Backend not connected')}</span>
-          </div>
-
-
-          {/* Quick actions */}
-
-          <div className="suggestions">
-
+          {/* Quick action suggestions below the prompt bar */}
+          <div className="suggestions suggestions-below">
             <button className="nova-glow-host" onClick={() => setTask('Clean up my downloads')}>
               <GlowingEffect proximity={78} spread={82} borderWidth={1.15} halo={false} />
               <FolderIcon />
@@ -2866,7 +2887,11 @@ const [task, setTask] = useState('')
               <GridIcon />
               Open my design app
             </button>
+          </div>
 
+          <div className={`backend-status ${backendOnline ? 'online' : ''} ${(voiceNotice || statusMessage) ? 'visible' : ''}`}>
+            <span className="backend-dot"></span>
+            <span>{voiceNotice || statusMessage || (backendOnline ? 'NOVA backend ready' : 'Backend not connected')}</span>
           </div>
 
 
@@ -2951,6 +2976,7 @@ const [task, setTask] = useState('')
               <div
                 className={`task-box chat-task-box ${listening || localTranscribing ? 'voice-active' : ''}`}
               >
+                {(running || taskStarting) && <CapybaraLoader />}
                 {listening ? (
                   <div className="voice-capture">
                     <div className="voice-capture-copy">
@@ -2981,6 +3007,7 @@ const [task, setTask] = useState('')
                       }}
                       placeholder={activeChat ? 'Continue this conversation...' : 'Start a new conversation...'}
                     />
+                    <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} dropUp />
                     <button
                       className="microphone"
                       aria-label="Start voice input"
@@ -2994,6 +3021,17 @@ const [task, setTask] = useState('')
                     >
                       <MicIcon />
                     </button>
+                    {!listening && !localTranscribing && (
+                      <button
+                        className={`send-button ${taskStarting ? 'is-starting' : ''} ${!task.trim() && !running && !stopArmed ? 'is-voice-entry' : ''}`}
+                        onClick={handleActionButton}
+                        disabled={taskStarting}
+                        aria-label={taskStarting ? 'Starting task' : running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : task.trim() ? 'Send message' : 'Open voice mode'}
+                        type="button"
+                      >
+                        {taskStarting ? <span className="send-spinner" /> : running || stopArmed ? <StopSquareIcon /> : task.trim() ? <SendArrowIcon /> : <VoiceModeIcon />}
+                      </button>
+                    )}
                   </>
                 )}
                 {localRetryAvailable && (
@@ -3009,18 +3047,8 @@ const [task, setTask] = useState('')
                     <span>{localTranscribing ? 'Retrying locally…' : 'Retry locally'}</span>
                   </button>
                 )}
-                {!listening && !localTranscribing && (
-                  <button
-                    className={`send-button ${taskStarting ? 'is-starting' : ''} ${!task.trim() && !running && !stopArmed ? 'is-voice-entry' : ''}`}
-                    onClick={handleActionButton}
-                    disabled={taskStarting}
-                    aria-label={taskStarting ? 'Starting task' : running ? 'Stop task' : stopArmed ? 'Close NOVA agent' : task.trim() ? 'Send message' : 'Open voice mode'}
-                    type="button"
-                  >
-                    {taskStarting ? <span className="send-spinner" /> : running || stopArmed ? <StopSquareIcon /> : task.trim() ? <SendArrowIcon /> : <VoiceModeIcon />}
-                  </button>
-                )}
               </div>
+
               {voiceNotice && !listening && !localTranscribing && (
                 <div className={`voice-feedback ${voiceTranscriptReady ? 'ready' : 'error'}`} role="status">
                   <span className="voice-feedback-mark">{voiceTranscriptReady ? '✓' : '!'}</span>
@@ -3037,6 +3065,7 @@ const [task, setTask] = useState('')
 
             <div className="settings-tabs" role="tablist" aria-label="Settings sections">
               <button type="button" role="tab" aria-selected={settingsTab === 'display'} className={settingsTab === 'display' ? 'active' : ''} onClick={() => setSettingsTab('display')}>General</button>
+              <button type="button" role="tab" aria-selected={settingsTab === 'models'} className={settingsTab === 'models' ? 'active' : ''} onClick={() => setSettingsTab('models')}>Models & AI</button>
               <button type="button" role="tab" aria-selected={settingsTab === 'speech'} className={settingsTab === 'speech' ? 'active' : ''} onClick={() => setSettingsTab('speech')}>Voice & Speech</button>
               <button type="button" role="tab" aria-selected={settingsTab === 'advanced'} className={settingsTab === 'advanced' ? 'active' : ''} onClick={() => setSettingsTab('advanced')}>Advanced</button>
             </div>
@@ -3076,14 +3105,97 @@ const [task, setTask] = useState('')
 
                   <section className="settings-card">
                     <div className="settings-card-copy">
-                      <span className="settings-card-label">APPEARANCE</span>
-                      <h2>Theme</h2>
-                      <p>Choose how NOVA looks on this device.</p>
+                      <span className="settings-card-label">INTELLIGENCE</span>
+                      <h2>Agent Execution Mode</h2>
+                      <p>Select how NOVA handles your prompts: Auto routes dynamically, Browser operates web automation, and Desktop operates native Windows applications.</p>
                     </div>
-                    <div className="settings-theme-options">
-                      <button type="button" className={themeMode === 'light' ? 'selected' : ''} onClick={() => setThemeMode('light')}>☼ <span>Light</span></button>
-                      <button type="button" className={themeMode === 'dark' ? 'selected' : ''} onClick={() => setThemeMode('dark')}>☾ <span>Dark</span></button>
-                      <button type="button" className={themeMode === 'system' ? 'selected' : ''} onClick={() => setThemeMode('system')}>◐ <span>System</span></button>
+                    <div className="settings-mode-control" style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+                      <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} />
+                    </div>
+                  </section>
+
+                  <section className="settings-card settings-theme-card">
+                    <div className="settings-card-copy">
+                      <span className="settings-card-label">APPEARANCE</span>
+                      <h2>Theme Mode</h2>
+                      <p>Choose between light and dark mode, or sync with your system theme.</p>
+                    </div>
+
+                    <div className="theme-changer-container">
+                      {/* 1. Auto theme selection button above */}
+                      <div className="theme-auto-control">
+                        <button
+                          type="button"
+                          className={`theme-auto-btn ${themeMode === 'system' ? 'is-active' : ''}`}
+                          onClick={() => setThemeMode('system')}
+                          aria-label="Match System Theme"
+                        >
+                          <span className="theme-auto-icon">◐</span>
+                          <span>Match System Theme</span>
+                          {themeMode === 'system' && <span className="theme-auto-badge">Auto</span>}
+                        </button>
+                      </div>
+
+                      {/* 2. Young Dingo 21 Card (Centered, shrinked with negative space on both sides, without time/battery/network menu above) */}
+                      <div className="young-dingo-card">
+                        <input
+                          type="checkbox"
+                          id="youngDingoThemeCheckbox"
+                          checked={darkMode}
+                          onChange={(e) => setThemeMode(e.target.checked ? 'dark' : 'light')}
+                          aria-label="Theme mode toggle"
+                        />
+                        <div
+                          className={`yd-phone ${darkMode ? 'is-dark' : 'is-light'}`}
+                          role="region"
+                          aria-label="Day and night theme card"
+                        >
+                          <div
+                            className="yd-content"
+                            onClick={() => setThemeMode(darkMode ? 'light' : 'dark')}
+                            title="Click to toggle theme"
+                          >
+                            <div className="yd-circle">
+                              <div className="yd-crescent" />
+                            </div>
+
+                            <div className="yd-label" role="group" aria-label="Theme mode selector">
+                              <div
+                                className="yd-toggle"
+                                style={{
+                                  transform: darkMode ? 'translateX(100%)' : 'translateX(0%)',
+                                }}
+                              />
+                              <div className="yd-names">
+                                <button
+                                  type="button"
+                                  className={`yd-mode-btn yd-light ${!darkMode ? 'is-active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setThemeMode('light')
+                                  }}
+                                  aria-label="Switch to Light Theme"
+                                  aria-pressed={!darkMode}
+                                >
+                                  Light
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`yd-mode-btn yd-dark ${darkMode ? 'is-active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setThemeMode('dark')
+                                  }}
+                                  aria-label="Switch to Dark Theme"
+                                  aria-pressed={darkMode}
+                                >
+                                  Dark
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </section>
 
@@ -3091,18 +3203,101 @@ const [task, setTask] = useState('')
                     <div className="settings-card-copy">
                       <span className="settings-card-label">PERSONALISATION</span>
                       <h2>Accent colour</h2>
-                      <p>Choose a colour for NOVA’s sidebar, buttons, chat bubbles and highlights.</p>
+                      <p>Choose an accent colour for standard buttons, indicators, and highlights.</p>
                     </div>
-                    <div className="accent-theme-options" role="group" aria-label="Choose NOVA accent colour">
-                      {ACCENT_THEMES.map((theme) => (
-                        <button key={theme.id} type="button" className={`accent-theme-option ${accentTheme === theme.id ? 'selected' : ''}`} onClick={() => setAccentTheme(theme.id)} aria-label={`${theme.name} accent colour`} aria-pressed={accentTheme === theme.id} style={{ '--swatch-color': theme.primary, '--swatch-light': theme.light }}>
+                    <div className="accent-theme-options" role="group" aria-label="Choose standard accent colour">
+                      {ACCENT_THEMES.filter((theme) => !theme.special).map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          className={`accent-theme-option ${accentTheme === theme.id ? 'selected' : ''}`}
+                          onClick={() => setAccentTheme(theme.id)}
+                          aria-label={`${theme.name} accent colour`}
+                          aria-pressed={accentTheme === theme.id}
+                          style={{ '--swatch-color': theme.primary, '--swatch-light': theme.light }}
+                        >
                           <span className="accent-theme-swatch">{accentTheme === theme.id ? '✓' : ''}</span>
                           <span className="accent-theme-name">{theme.name}</span>
                         </button>
                       ))}
                     </div>
+
+                    {/* Big separate box below for NOVA Bronze Total Revamp */}
+                    <div className="special-revamp-section">
+                      <div className="special-revamp-divider">
+                        <span className="special-revamp-divider-line" />
+                        <span className="special-revamp-divider-text">SPECIAL EDITION THEME</span>
+                        <span className="special-revamp-divider-line" />
+                      </div>
+
+                      <div
+                        className={`special-revamp-card ${accentTheme === 'bronze' ? 'is-active' : ''}`}
+                        onClick={() => setAccentTheme('bronze')}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setAccentTheme('bronze')
+                          }
+                        }}
+                        aria-pressed={accentTheme === 'bronze'}
+                      >
+                        <div className="special-revamp-card-glow" />
+                        <div className="special-revamp-card-content">
+                          <div className="special-revamp-top">
+                            <div className="special-revamp-badge-row">
+                              <span className="special-revamp-pill">SPECIAL THEME</span>
+                              <span className="special-revamp-highlight-pill">TOTAL REVAMP</span>
+                              {accentTheme === 'bronze' && (
+                                <span className="special-revamp-status-pill">✓ CURRENTLY ACTIVE</span>
+                              )}
+                            </div>
+                            <div className="special-revamp-swatches" aria-hidden="true">
+                              <span className="revamp-swatch gold" title="Luxury Bronze (#a68b64)" />
+                              <span className="revamp-swatch sand" title="Warm Architectural Sand (#f7f4ec)" />
+                              <span className="revamp-swatch obsidian" title="Obsidian Charcoal (#191a18)" />
+                            </div>
+                          </div>
+
+                          <div className="special-revamp-body">
+                            <div className="special-revamp-titles">
+                              <h3 className="special-revamp-title">NOVA Bronze</h3>
+                              <span className="special-revamp-subtitle">Editorial &amp; Luxury Edition · Inspired by NOVA Serve &amp; NOVA Digital Studio</span>
+                            </div>
+                            <p className="special-revamp-desc">
+                              A complete visual revamp that transforms the entire interface. Changes the typography to <em>Instrument Serif</em>, shifts the background to warm architectural sand or obsidian charcoal, applies refined hairline borders, and introduces elevated editorial cards.
+                            </p>
+                          </div>
+
+                          <div className="special-revamp-footer">
+                            <div className="special-revamp-features">
+                              <span className="revamp-tag">✦ Custom Instrument Serif Font</span>
+                              <span className="revamp-tag">✦ Editorial Architecture</span>
+                              <span className="revamp-tag">✦ Luxury Sand &amp; Obsidian</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`special-revamp-action-btn ${accentTheme === 'bronze' ? 'active' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setAccentTheme('bronze')
+                              }}
+                            >
+                              {accentTheme === 'bronze'
+                                ? '✓ Theme Active (Custom Font & Total Revamp)'
+                                : 'Switch to NOVA Bronze (Custom Font & Total Revamp)'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </section>
                 </div>
+              )}
+
+              {settingsTab === 'models' && (
+                <ModelsSettings agentMode={agentMode} onSelectMode={handleModeChange} />
               )}
 
               {settingsTab === 'speech' && (
@@ -3200,7 +3395,7 @@ const [task, setTask] = useState('')
                       <div className="settings-runtime-stat"><span>Browser worker</span><strong>{systemSnapshot?.runtime?.worker_alive ?? systemSnapshot?.status?.workerAlive ? 'Ready' : backendOnline ? 'Starting' : 'Offline'}</strong></div>
                       <div className="settings-runtime-stat"><span>Active specialist</span><strong>{systemSnapshot?.runtime?.active_agent || systemSnapshot?.status?.activeAgent || 'Idle'}</strong></div>
                       <div className="settings-runtime-stat"><span>Browser session</span><strong>{systemSnapshot?.runtime?.browser_open ?? systemSnapshot?.status?.browserOpen ? 'Open' : 'Closed'}</strong></div>
-                      <div className="settings-runtime-stat"><span>Build</span><strong>{systemSnapshot?.application?.version || '0.5.0-alpha'}</strong></div>
+                      <div className="settings-runtime-stat"><span>Build</span><strong>{systemSnapshot?.application?.version || '0.6.0-beta'}</strong></div>
                     </div>
                   </section>
 
@@ -3225,7 +3420,7 @@ const [task, setTask] = useState('')
                   <section className="settings-card settings-release-card">
                     <div className="settings-card-copy">
                       <span className="settings-card-label">BUILD INFORMATION</span>
-                      <h2>{systemSnapshot?.application?.name || 'NOVA'} · {systemSnapshot?.application?.version || '0.5.0-alpha'}</h2>
+                      <h2>{systemSnapshot?.application?.name || 'NOVA'} · {systemSnapshot?.application?.version || '0.6.0-beta'}</h2>
                       <p>{systemSnapshot?.application?.build || 'Alpha 0.5 · Phase 4 Professionalisation'} · {systemSnapshot?.application?.channel || 'development'} channel. Browser automation is provided by the dedicated Brave/Playwright worker.</p>
                     </div>
                   </section>
@@ -3253,6 +3448,55 @@ const [task, setTask] = useState('')
               <span className="nova-voice-room-tag">VOICE</span>
             </div>
 
+            {/* hard-goose-47 Celestial Day/Night Theme Switch by 00Kubi */}
+            <div className="nova-voice-room-theme-toggle-wrap">
+              <label className="theme-switch" aria-label="Toggle voice menu theme">
+                <input
+                  type="checkbox"
+                  className="theme-switch__checkbox"
+                  checked={darkMode}
+                  onChange={(e) => setThemeMode(e.target.checked ? 'dark' : 'light')}
+                  aria-label="Toggle Dark/Light Theme"
+                />
+                <div className="theme-switch__container">
+                  <div className="theme-switch__clouds" />
+                  <div className="theme-switch__stars-container">
+                    <svg fill="none" viewBox="0 0 144 55" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        fill="currentColor"
+                        d="M135.831 3.00688C135.055 3.85027 134.111 4.29946 133 4.35447C134.111 4.40947 135.055 4.85867 135.831 5.71123C136.607 6.55462 136.996 7.56303 136.996 8.72727C136.996 7.95722 137.172 7.25134 137.525 6.59129C137.886 5.93124 138.372 5.39954 138.98 5.00535C139.598 4.60199 140.268 4.39114 141 4.35447C139.88 4.2903 138.936 3.85027 138.16 3.00688C137.384 2.16348 136.996 1.16425 136.996 0C136.996 1.16425 136.607 2.16348 135.831 3.00688ZM31 23.3545C32.1114 23.2995 33.0551 22.8503 33.8313 22.0069C34.6075 21.1635 34.9956 20.1642 34.9956 19C34.9956 20.1642 35.3837 21.1635 36.1599 22.0069C36.9361 22.8503 37.8798 23.2903 39 23.3545C38.2679 23.3911 37.5976 23.602 36.9802 24.0053C36.3716 24.3995 35.8864 24.9312 35.5248 25.5913C35.172 26.2513 34.9956 26.9572 34.9956 27.7273C34.9956 26.563 34.6075 25.5546 33.8313 24.7112C33.0551 23.8587 32.1114 23.4095 31 23.3545ZM0 36.3545C1.11136 36.2995 2.05513 35.8503 2.83131 35.0069C3.6075 34.1635 3.99559 33.1642 3.99559 32C3.99559 33.1642 4.38368 34.1635 5.15987 35.0069C5.93605 35.8503 6.87982 36.2903 8 36.3545C7.26792 36.3911 6.59757 36.602 5.98015 37.0053C5.37155 37.3995 4.88644 37.9312 4.52481 38.5913C4.172 39.2513 3.99559 39.9572 3.99559 40.7273C3.99559 39.563 3.6075 38.5546 2.83131 37.7112C2.05513 36.8587 1.11136 36.4095 0 36.3545ZM56.8313 24.0069C56.0551 24.8503 55.1114 25.2995 54 25.3545C55.1114 25.4095 56.0551 25.8587 56.8313 26.7112C57.6075 27.5546 57.9956 28.563 57.9956 29.7273C57.9956 28.9572 58.172 28.2513 58.5248 27.5913C58.8864 26.9312 59.3716 26.3995 59.9802 26.0053C60.5976 25.602 61.2679 25.3911 62 25.3545C60.8798 25.2903 59.9361 24.8503 59.1599 24.0069C58.3837 23.1635 57.9956 22.1642 57.9956 21C57.9956 22.1642 57.6075 23.1635 56.8313 24.0069ZM81 25.3545C82.1114 25.2995 83.0551 24.8503 83.8313 24.0069C84.6075 23.1635 84.9956 22.1642 84.9956 21C84.9956 22.1642 85.3837 23.1635 86.1599 24.0069C86.9361 24.8503 87.8798 25.2903 89 25.3545C88.2679 25.3911 87.5976 25.602 86.9802 26.0053C86.3716 26.3995 85.8864 26.9312 85.5248 27.5913C85.172 28.2513 84.9956 28.9572 84.9956 29.7273C84.9956 28.563 84.6075 27.5546 83.8313 26.7112C83.0551 25.8587 82.1114 25.4095 81 25.3545ZM136 36.3545C137.111 36.2995 138.055 35.8503 138.831 35.0069C139.607 34.1635 139.996 33.1642 139.996 32C139.996 33.1642 140.384 34.1635 141.16 35.0069C141.936 35.8503 142.88 36.2903 144 36.3545C143.268 36.3911 142.598 36.602 141.98 37.0053C141.372 37.3995 140.886 37.9312 140.525 38.5913C140.172 39.2513 139.996 39.9572 139.996 40.7273C139.996 39.563 139.607 38.5546 138.831 37.7112C138.055 36.8587 137.111 36.4095 136 36.3545ZM101.831 49.0069C101.055 49.8503 100.111 50.2995 99 50.3545C100.111 50.4095 101.055 50.8587 101.831 51.7112C102.607 52.5546 102.996 53.563 102.996 54.7273C102.996 53.9572 103.172 53.2513 103.525 52.5913C103.886 51.9312 104.372 51.3995 104.98 51.0053C105.598 50.602 106.268 50.3911 107 50.3545C105.88 50.2903 104.936 49.8503 104.16 49.0069C103.384 48.1635 102.996 47.1642 102.996 46C102.996 47.1642 102.607 48.1635 101.831 49.0069Z"
+                        clipRule="evenodd"
+                        fillRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="theme-switch__circle-container">
+                    <div className="theme-switch__sun-moon-container">
+                      <div className="theme-switch__moon">
+                        <div className="theme-switch__spot" />
+                        <div className="theme-switch__spot" />
+                        <div className="theme-switch__spot" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="theme-switch__shooting-star" />
+                  <div className="theme-switch__shooting-star-2" />
+                  <div className="theme-switch__meteor" />
+                  <div className="theme-switch__stars-cluster">
+                    <div className="star" />
+                    <div className="star" />
+                    <div className="star" />
+                    <div className="star" />
+                    <div className="star" />
+                  </div>
+                  <div className="theme-switch__aurora" />
+                  <div className="theme-switch__comets">
+                    <div className="comet" />
+                    <div className="comet" />
+                  </div>
+                </div>
+              </label>
+            </div>
           </header>
 
           <main className={`nova-voice-room-content ${voiceCaptionsEnabled ? 'has-transcription' : ''}`}>

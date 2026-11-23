@@ -1,0 +1,702 @@
+/* ========================================================================== */
+/* NOVA BRONZE — SPECIAL EDITORIAL & LUXURY THEME                             */
+/* Inspired by NOVA Serve (novaserve.digital) & NOVA Digital Studio           */
+/* Only active when data-accent-theme="bronze"                                */
+/* ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ========================================================================== */
+/* 1. TYPOGRAPHY & ATMOSPHERE                                                 */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #f7f4ec !important;
+  background-image: 
+    radial-gradient(ellipse 60% 40% at 85% 5%, rgba(166, 139, 100, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 15% 95%, rgba(0, 121, 86, 0.04) 0%, transparent 60%) !important;
+  color: #20201d !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode {
+  background-color: #191a18 !important;
+  background-image: 
+    radial-gradient(ellipse 60% 40% at 85% 5%, rgba(166, 139, 100, 0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 15% 95%, rgba(0, 187, 127, 0.04) 0%, transparent 60%) !important;
+  color: #f7f4ec !important;
+}
+
+/* Headings become Instrument Serif */
+.app[data-accent-theme="bronze"] .hero h1,
+.app[data-accent-theme="bronze"] .settings-page h1,
+.app[data-accent-theme="bronze"] .conversation-empty h2,
+.app[data-accent-theme="bronze"] .brand .nova-text,
+.app[data-accent-theme="bronze"] .settings-card h2 {
+  font-family: 'Instrument Serif', Georgia, "Times New Roman", serif !important;
+}
+
+.app[data-accent-theme="bronze"] .hero h1 {
+  font-size: clamp(40px, 6vw, 62px) !important;
+  font-weight: 400 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.01em !important;
+  color: #20201d !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .hero h1 {
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .hero h1 span {
+  font-style: italic !important;
+  color: #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"] .hero .eyebrow {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.16em !important;
+  color: #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"] .hero-description {
+  font-family: 'Inter', sans-serif !important;
+  color: #77746c !important;
+  line-height: 1.65 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .hero-description {
+  color: #a3a096 !important;
+}
+
+/* Brand text in sidebar */
+.app[data-accent-theme="bronze"] .brand .nova-text {
+  font-size: 18px !important;
+  font-style: italic !important;
+  letter-spacing: 0.16em !important;
+  color: #20201d !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .brand .nova-text {
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .brand .nova-logo {
+  border-color: #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"] .brand .nova-logo span {
+  background: #a68b64 !important;
+}
+
+/* ========================================================================== */
+/* 2. SIDEBAR REFINEMENT IN BRONZE THEME                                      */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] .sidebar {
+  background: #efebe1 !important;
+  border-right: 1px solid #e5e0d5 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .sidebar {
+  background: #222320 !important;
+  border-right: 1px solid #2c2d2a !important;
+}
+
+.app[data-accent-theme="bronze"] .sidebar-top,
+.app[data-accent-theme="bronze"] .sidebar-bottom {
+  border-color: #e5e0d5 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .sidebar-top,
+.app[data-accent-theme="bronze"].dark-mode .sidebar-bottom {
+  border-color: #2c2d2a !important;
+}
+
+.app[data-accent-theme="bronze"] .sidebar-chat-item.active {
+  background: #fffefa !important;
+  border-color: #e5e0d5 !important;
+  color: #20201d !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .sidebar-chat-item.active {
+  background: #282925 !important;
+  border-color: #2c2d2a !important;
+  color: #f7f4ec !important;
+}
+
+/* ========================================================================== */
+/* 3. PROMPT BAR (TASK-BOX) IN BRONZE THEME                                   */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] .hero {
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 40px clamp(20px, 4vw, 66px) 50px !important;
+  box-sizing: border-box !important;
+}
+
+.app[data-accent-theme="bronze"] .task-box {
+  width: min(100%, 860px) !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  border-radius: 999px !important;
+  padding: 8px 10px 8px 22px !important;
+  background: #fffefa !important;
+  border: 1px solid #e5e0d5 !important;
+  box-shadow: 0 4px 24px -4px rgba(32, 32, 29, 0.08) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .task-box {
+  background: #282925 !important;
+  border: 1px solid #2c2d2a !important;
+  box-shadow: 0 6px 28px -4px rgba(0, 0, 0, 0.45) !important;
+}
+
+.app[data-accent-theme="bronze"] .suggestions {
+  margin-top: 18px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  max-width: 860px !important;
+}
+
+.app[data-accent-theme="bronze"] .suggestions button {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 9px 18px !important;
+  border-radius: 999px !important;
+  border: 1px solid #e5e0d5 !important;
+  background: rgba(255, 254, 250, 0.8) !important;
+  color: #383834 !important;
+  transition: all 0.18s ease !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .suggestions button {
+  border-color: #2c2d2a !important;
+  background: rgba(40, 41, 37, 0.8) !important;
+  color: #d6d0c7 !important;
+}
+
+.app[data-accent-theme="bronze"] .suggestions button:hover {
+  border-color: #a68b64 !important;
+  color: #a68b64 !important;
+  background: #fffefa !important;
+  transform: translateY(-1px) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .suggestions button:hover {
+  background: #2c2d29 !important;
+  color: #f7f4ec !important;
+  border-color: #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"] .task-box input {
+  color: #20201d !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .task-box input {
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .task-box input::placeholder {
+  color: #9e9b92 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .task-box input::placeholder {
+  color: #74726a !important;
+}
+
+.app[data-accent-theme="bronze"] .send-button {
+  background: #a68b64 !important;
+  color: #ffffff !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease !important;
+}
+
+.app[data-accent-theme="bronze"] .send-button:hover {
+  background: #93764b !important;
+  transform: scale(1.05) !important;
+}
+
+.app[data-accent-theme="bronze"] .microphone {
+  color: #77746c !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .microphone {
+  color: #a3a096 !important;
+}
+
+.app[data-accent-theme="bronze"] .microphone:hover {
+  color: #a68b64 !important;
+}
+
+/* ========================================================================== */
+/* 4. HOME SUGGESTIONS IN BRONZE THEME                                        */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] .suggestions button {
+  background: #fffefa !important;
+  border: 1px solid #e5e0d5 !important;
+  color: #20201d !important;
+  font-family: 'Inter', sans-serif !important;
+  box-shadow: 0 2px 8px -2px rgba(32, 32, 29, 0.04) !important;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .suggestions button {
+  background: #282925 !important;
+  border: 1px solid #2c2d2a !important;
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .suggestions button svg {
+  color: #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"] .suggestions button:hover {
+  background: #ffffff !important;
+  border-color: #a68b64 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px -4px rgba(166, 139, 100, 0.18) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .suggestions button:hover {
+  background: #2e302c !important;
+  border-color: #a68b64 !important;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Backend status in Bronze theme */
+.app[data-accent-theme="bronze"] .backend-status {
+  background: #fffefa !important;
+  border: 1px solid #e5e0d5 !important;
+  color: #77746c !important;
+  box-shadow: 0 2px 8px -2px rgba(32, 32, 29, 0.04) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .backend-status {
+  background: #282925 !important;
+  border: 1px solid #2c2d2a !important;
+  color: #a3a096 !important;
+}
+
+/* ========================================================================== */
+/* 5. CHAT CONVERSATION IN BRONZE THEME                                       */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] .conversation-message.user {
+  background: #efebe1 !important;
+  border: 1px solid #e5e0d5 !important;
+  color: #20201d !important;
+  border-radius: 16px 16px 2px 16px !important;
+  box-shadow: 0 2px 6px -1px rgba(32, 32, 29, 0.04) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .conversation-message.user {
+  background: #2c2d2a !important;
+  border: 1px solid rgba(247, 244, 236, 0.1) !important;
+  color: #f7f4ec !important;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+.app[data-accent-theme="bronze"] .conversation-message.nova {
+  color: #20201d !important;
+  line-height: 1.65 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .conversation-message.nova {
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .conversation-message.nova a {
+  color: #a68b64 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.app[data-accent-theme="bronze"] .nova-response-action {
+  border-color: #e5e0d5 !important;
+  background: #fffefa !important;
+  color: #77746c !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .nova-response-action {
+  border-color: #2c2d2a !important;
+  background: #282925 !important;
+  color: #a3a096 !important;
+}
+
+.app[data-accent-theme="bronze"] .nova-response-action:hover {
+  border-color: #a68b64 !important;
+  color: #20201d !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .nova-response-action:hover {
+  color: #f7f4ec !important;
+}
+
+.app[data-accent-theme="bronze"] .nova-thinking-inline {
+  background: #fffefa !important;
+  border-color: #e5e0d5 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .nova-thinking-inline {
+  background: #282925 !important;
+  border-color: #2c2d2a !important;
+}
+
+.app[data-accent-theme="bronze"] .nova-thinking-indicator i {
+  background: #a68b64 !important;
+}
+
+/* ========================================================================== */
+/* 6. SETTINGS PANELS IN BRONZE THEME                                         */
+/* ========================================================================== */
+
+.app[data-accent-theme="bronze"] .settings-card {
+  background: #fffefa !important;
+  border: 1px solid #e5e0d5 !important;
+  box-shadow: 0 2px 10px -2px rgba(32, 32, 29, 0.04) !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .settings-card {
+  background: #282925 !important;
+  border: 1px solid #2c2d2a !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35) !important;
+}
+
+.app[data-accent-theme="bronze"] .settings-card-label {
+  color: #a68b64 !important;
+  letter-spacing: 0.1em !important;
+  font-weight: 600 !important;
+}
+
+.app[data-accent-theme="bronze"] .settings-card h2 {
+  font-size: 20px !important;
+  font-weight: 400 !important;
+}
+
+.app[data-accent-theme="bronze"] .settings-tabs button.active {
+  color: #20201d !important;
+  border-bottom: 2px solid #a68b64 !important;
+}
+
+.app[data-accent-theme="bronze"].dark-mode .settings-tabs button.active {
+  color: #f7f4ec !important;
+}
+
+/* ========================================================================== */
+/* 7. SPECIAL REVAMP SHOWCASE CARD IN SETTINGS (NOVA BRONZE TOTAL REVAMP)     */
+/* ========================================================================== */
+
+.special-revamp-section {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.special-revamp-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.special-revamp-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(166, 139, 100, 0.25), transparent);
+}
+
+.special-revamp-divider-text {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a68b64;
+  opacity: 0.9;
+}
+
+.special-revamp-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 20px 22px;
+  border: 1.5px solid rgba(166, 139, 100, 0.3);
+  background: linear-gradient(135deg, rgba(166, 139, 100, 0.08) 0%, rgba(247, 244, 236, 0.6) 50%, rgba(166, 139, 100, 0.03) 100%);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  text-align: left;
+}
+
+.app.dark-mode .special-revamp-card {
+  background: linear-gradient(135deg, rgba(166, 139, 100, 0.12) 0%, rgba(25, 26, 24, 0.8) 50%, rgba(166, 139, 100, 0.04) 100%);
+  border-color: rgba(166, 139, 100, 0.38);
+}
+
+.special-revamp-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(166, 139, 100, 0.65);
+  box-shadow: 0 10px 28px -6px rgba(166, 139, 100, 0.2), 0 0 0 1px rgba(166, 139, 100, 0.35);
+}
+
+.special-revamp-card.is-active {
+  border-color: #a68b64;
+  background: linear-gradient(135deg, rgba(166, 139, 100, 0.15) 0%, rgba(247, 244, 236, 0.85) 60%, rgba(166, 139, 100, 0.08) 100%);
+  box-shadow: 0 0 0 1.5px #a68b64, 0 12px 32px -4px rgba(166, 139, 100, 0.28);
+}
+
+.app.dark-mode .special-revamp-card.is-active {
+  background: linear-gradient(135deg, rgba(166, 139, 100, 0.22) 0%, rgba(25, 26, 24, 0.95) 60%, rgba(166, 139, 100, 0.1) 100%);
+  border-color: #a68b64;
+  box-shadow: 0 0 0 1.5px #a68b64, 0 12px 34px -4px rgba(166, 139, 100, 0.35);
+}
+
+.special-revamp-card-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.special-revamp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.special-revamp-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.special-revamp-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(166, 139, 100, 0.16);
+  color: #8e734c;
+  border: 1px solid rgba(166, 139, 100, 0.25);
+}
+
+.app.dark-mode .special-revamp-pill {
+  color: #dfceb1;
+  background: rgba(166, 139, 100, 0.22);
+}
+
+.special-revamp-highlight-pill {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #a68b64;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(166, 139, 100, 0.45);
+}
+
+.special-revamp-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #2e7d32;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3);
+}
+
+.special-revamp-swatches {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revamp-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  display: inline-block;
+}
+
+.app.dark-mode .revamp-swatch {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.revamp-swatch.gold {
+  background: #a68b64;
+}
+
+.revamp-swatch.sand {
+  background: #f7f4ec;
+}
+
+.revamp-swatch.obsidian {
+  background: #191a18;
+}
+
+.special-revamp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.special-revamp-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.special-revamp-title {
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #a68b64;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.special-revamp-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7b6545;
+  letter-spacing: 0.02em;
+}
+
+.app.dark-mode .special-revamp-subtitle {
+  color: #cdbfab;
+}
+
+.special-revamp-desc {
+  margin: 4px 0 0 0 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: #4a4a45 !important;
+  max-width: 620px;
+}
+
+.special-revamp-desc em {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: 14.5px;
+  color: #a68b64;
+}
+
+.app.dark-mode .special-revamp-desc {
+  color: #d6d0c7 !important;
+}
+
+.special-revamp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.special-revamp-features {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.revamp-tag {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(166, 139, 100, 0.12);
+  color: #6a573b;
+  border: 1px solid rgba(166, 139, 100, 0.2);
+}
+
+.app.dark-mode .revamp-tag {
+  background: rgba(166, 139, 100, 0.18);
+  color: #dfd7cc;
+  border-color: rgba(166, 139, 100, 0.3);
+}
+
+.special-revamp-action-btn {
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.special-revamp-action-btn:not(.active) {
+  background: #a68b64;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 12px rgba(166, 139, 100, 0.4);
+}
+
+.special-revamp-action-btn:not(.active):hover {
+  background: #93764b;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 16px rgba(166, 139, 100, 0.5);
+}
+
+.special-revamp-action-btn.active {
+  background: rgba(166, 139, 100, 0.18);
+  color: #a68b64;
+  border: 1px solid #a68b64;
+  cursor: default;
+}
+
+.app.dark-mode .special-revamp-action-btn.active {
+  background: rgba(166, 139, 100, 0.25);
+  color: #f7f4ec;
+  border-color: #a68b64;
+}
+
+@media (max-width: 600px) {
+  .special-revamp-card {
+    padding: 16px;
+  }
+  .special-revamp-title {
+    font-size: 20px;
+  }
+  .special-revamp-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .special-revamp-action-btn {
+    width: 100%;
+  }
+}

@@ -141,6 +141,8 @@ _listener = None
 
 CURRENT_COMMAND = ""
 CURRENT_LANGUAGE = "en"
+_CURRENT_CHAT_ID = "default"
+_CHAT_HISTORIES = {}
 CONVERSATION_HISTORY = []
 
 # The active destination persists between conversational commands.
@@ -160,12 +162,13 @@ def _load_agent_memory():
             data = json.load(f)
         if not isinstance(data, dict):
             data = {}
-        data.setdefault("history", [])
+        # Completely purge any legacy unisolated history so chats never bleed
+        data.pop("history", None)
         data.setdefault("completed_tasks", [])
         data.setdefault("recipes", [])
         return data
     except (OSError, ValueError, TypeError):
-        return {"history": [], "completed_tasks": [], "recipes": []}
+        return {"completed_tasks": [], "recipes": []}
 
 
 AGENT_MEMORY = _load_agent_memory()
@@ -319,6 +322,22 @@ def esc_listener():
 # BRAVE
 # ============================================================
 
+def check_cdp_available(port: int = 9222) -> str | None:
+    """Check if an active browser is listening on CDP for zero-lock live tab attachment."""
+    import urllib.request
+    import json
+    try:
+        url = f"http://127.0.0.1:{port}/json/version"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=0.25) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode())
+                return data.get("webSocketDebuggerUrl")
+    except Exception:
+        pass
+    return None
+
+
 def kill_brave():
     """Stop only Brave processes launched with NOVA's dedicated profile.
 
@@ -372,12 +391,33 @@ def start_browser():
             return False
 
         os.makedirs(PROFILE_PATH, exist_ok=True)
-        kill_brave()
+        # Sandbox & Test mode guard: if testing or explicitly requested, run headless
+        is_test_mode = os.environ.get("NOVA_TEST_MODE") == "1"
+        is_sandbox_mode = os.environ.get("NOVA_SANDBOX_MODE") == "1"
+        is_headless_req = os.environ.get("NOVA_HEADLESS", "").lower() in ("1", "true")
+        should_run_headless = is_test_mode or is_sandbox_mode or is_headless_req
+
+        if not is_test_mode and not is_sandbox_mode:
+            kill_brave()
         _playwright = sync_playwright().start()
+
+        # Dual-Engine Live Tab Bridge: If user has a browser open on CDP port 9222, attach directly
+        cdp_url = check_cdp_available() if not is_test_mode and not is_sandbox_mode else None
+        if cdp_url:
+            try:
+                browser = _playwright.chromium.connect_over_cdp(cdp_url)
+                if browser.contexts:
+                    _browser_context = browser.contexts[0]
+                    _page = _browser_context.pages[0] if _browser_context.pages else _browser_context.new_page()
+                    _page.set_default_timeout(CLICK_TIMEOUT)
+                    print("⚡ Attached directly to live user browser session via CDP.")
+                    return True
+            except Exception:
+                pass
 
         _browser_context = _playwright.chromium.launch_persistent_context(
             user_data_dir=PROFILE_PATH,
-            headless=False,
+            headless=should_run_headless,
             executable_path=BRAVE_PATH,
             viewport={"width": 1400, "height": 900},
             args=[
@@ -385,8 +425,19 @@ def start_browser():
                 "--disable-background-networking",
                 "--disable-component-update",
                 "--disable-default-apps",
+                "--no-first-run",
+                "--no-default-browser-check",
             ],
         )
+
+        try:
+            _browser_context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+            """)
+        except Exception:
+            pass
 
         if _browser_context.pages:
             _page = _browser_context.pages[0]
@@ -441,6 +492,19 @@ def close_browser():
     _browser_context = None
     _page = None
     _playwright = None
+
+
+def capture_browser_viewport_jpeg() -> bytes | None:
+    """Capture live JPEG bytes of the active browser viewport for UI live streaming."""
+    global _page
+    if _page is None:
+        return None
+    try:
+        if not _page.is_closed():
+            return _page.screenshot(type="jpeg", quality=65)
+    except Exception:
+        pass
+    return None
 
 
 def _browser_is_usable():
@@ -500,12 +564,51 @@ def tiny_wait():
 # ============================================================
 
 def ask_qwen(messages, stream_callback=None, model=None):
-    """Call the shared local Qwen model, optionally forwarding generated text.
+    """Call the configured model (Gemini Cloud or Local Qwen), optionally forwarding generated text.
 
     The main model is the default. Ordinary conversation explicitly passes
     FAST_CHAT_MODEL; browser/research/task helpers therefore remain on MODEL.
     Callback failures never cancel the underlying model call.
     """
+    # Dynamic Model Router via nova_models
+    try:
+        import nova_models
+        settings = nova_models.get_model_settings()
+        is_chat_call = (
+            model == FAST_CHAT_MODEL
+            or (isinstance(model, str) and ("1.7b" in model.lower() or "chat" in model.lower()))
+        )
+        role = "chat" if is_chat_call else "work"
+        role_key = "chat_model" if role == "chat" else "work_model"
+        cfg = settings.get(role_key, {})
+
+        # If this role is explicitly disabled in Settings
+        if not cfg.get("enabled", True):
+            disabled_msg = f"## AI {role.title()} is Disabled\n\nAI {role.title()} capabilities have been disabled in Settings -> Models & AI."
+            if callable(stream_callback):
+                stream_callback(disabled_msg)
+            return disabled_msg
+
+        provider = cfg.get("provider", "local")
+        gemini_key = settings.get("gemini_api_key", "").strip()
+
+        # Route to Gemini API if configured and key present
+        if provider == "gemini" and gemini_key:
+            target_gemini_model = cfg.get("gemini_model", "gemini-3.5-flash-lite")
+            print(f"[NOVA MODEL ROUTER] Dispatching {role} request to Gemini ({target_gemini_model}).")
+            return nova_models.call_gemini(
+                messages,
+                api_key=gemini_key,
+                model=target_gemini_model,
+                stream_callback=stream_callback,
+            )
+        elif provider == "local":
+            chosen_local = cfg.get("local_model")
+            if chosen_local and not model:
+                model = chosen_local
+    except Exception as router_err:
+        print(f"[NOVA MODEL ROUTER WARNING] {router_err}; continuing with local execution.")
+
     active_model = str(model or MODEL).strip() or MODEL
     try:
         request_started = time.perf_counter()
@@ -615,45 +718,66 @@ def extract_json(text):
 # CONVERSATION CONTEXT
 # ============================================================
 
-def add_history(user_command, result=None):
+def set_current_chat_id(chat_id: str | None) -> None:
+    global _CURRENT_CHAT_ID, CONVERSATION_HISTORY
+    cid = str(chat_id or "default").strip() or "default"
+    _CURRENT_CHAT_ID = cid
+    CONVERSATION_HISTORY = list(_CHAT_HISTORIES.get(cid, []))
+
+
+def get_current_chat_id() -> str:
+    return _CURRENT_CHAT_ID
+
+
+def add_history(user_command, result=None, chat_id: str | None = None):
+    global CONVERSATION_HISTORY
+    cid = str(chat_id or _CURRENT_CHAT_ID or "default").strip() or "default"
     item = {
         "user": str(user_command).strip(),
         "result": str(result or "").strip(),
     }
 
-    CONVERSATION_HISTORY.append(item)
+    hist = _CHAT_HISTORIES.setdefault(cid, [])
+    hist.append(item)
+    if len(hist) > CONTEXT_TURNS:
+        del hist[:-CONTEXT_TURNS]
 
-    if len(CONVERSATION_HISTORY) > CONTEXT_TURNS:
-        del CONVERSATION_HISTORY[:-CONTEXT_TURNS]
-
-    # Keep a small persistent conversational memo across restarts.
-    persistent = AGENT_MEMORY.setdefault("history", [])
-    persistent.append(item)
-    AGENT_MEMORY["history"] = persistent[-CONTEXT_TURNS:]
-    _save_agent_memory()
+    if cid == _CURRENT_CHAT_ID:
+        CONVERSATION_HISTORY = list(hist)
 
 
-def history_for_qwen():
+def history_for_qwen(chat_id: str | None = None) -> str:
+    cid = str(chat_id or _CURRENT_CHAT_ID or "default").strip() or "default"
+    history = _CHAT_HISTORIES.get(cid, [])
+
+    if not history:
+        return "No previous conversation in this chat."
+
     lines = []
-
-    if not CONVERSATION_HISTORY:
-        lines.append("No previous conversation in this session.")
-
-    for item in CONVERSATION_HISTORY:
+    for item in history:
         lines.append("USER: " + item["user"])
-
         if item["result"]:
             lines.append("AGENT RESULT: " + item["result"][:500])
 
-    persistent_history = AGENT_MEMORY.get("history", [])
-    if persistent_history:
-        lines.append("PERSISTENT RECENT HISTORY:")
-        for item in persistent_history[-4:]:
-            lines.append("USER: " + str(item.get("user", "")))
-            if item.get("result"):
-                lines.append("AGENT RESULT: " + str(item.get("result", ""))[:250])
-
     return "\n".join(lines)
+
+
+def delete_chat_history(chat_id: str) -> None:
+    global _CURRENT_CHAT_ID, CONVERSATION_HISTORY
+    cid = str(chat_id or "").strip()
+    if not cid:
+        return
+    _CHAT_HISTORIES.pop(cid, None)
+    if _CURRENT_CHAT_ID == cid:
+        _CURRENT_CHAT_ID = "default"
+        CONVERSATION_HISTORY = list(_CHAT_HISTORIES.get("default", []))
+
+
+def clear_all_chat_histories() -> None:
+    global _CURRENT_CHAT_ID, CONVERSATION_HISTORY
+    _CHAT_HISTORIES.clear()
+    _CURRENT_CHAT_ID = "default"
+    CONVERSATION_HISTORY = []
 
 
 # ============================================================
@@ -689,7 +813,7 @@ def is_explicit_task_command(text):
     return False
 
 
-def fast_conversation_reply(command, stream_callback=None, language="auto"):
+def fast_conversation_reply(command, stream_callback=None, language="auto", chat_id: str | None = None):
     """
     Return (handled, reply).
 
@@ -698,6 +822,8 @@ def fast_conversation_reply(command, stream_callback=None, language="auto"):
     page observation, or action planning.
     """
     global CURRENT_LANGUAGE
+    if chat_id:
+        set_current_chat_id(chat_id)
     from nova_agents.language import normalize_language
     CURRENT_LANGUAGE = normalize_language(language, default="auto")
     clean = normalize_chat_text(command)
@@ -714,7 +840,7 @@ def fast_conversation_reply(command, stream_callback=None, language="auto"):
         return True, FAST_GREETING_REPLIES[greeting_key]
 
     if not is_explicit_task_command(command):
-        history = history_for_qwen()
+        history = history_for_qwen(chat_id=chat_id)
         prompt = f"""
 You are NOVA, a local conversational AI assistant.
 Answer the user's message naturally and concisely.
@@ -770,8 +896,10 @@ USER:
     return False, ""
 
 
-def handle_conversation(command, stream_callback=None, language="auto"):
-    handled, reply = fast_conversation_reply(command, stream_callback=stream_callback, language=language)
+def handle_conversation(command, stream_callback=None, language="auto", chat_id: str | None = None):
+    handled, reply = fast_conversation_reply(
+        command, stream_callback=stream_callback, language=language, chat_id=chat_id
+    )
 
     if not handled:
         return False, ""
@@ -780,7 +908,7 @@ def handle_conversation(command, stream_callback=None, language="auto"):
     print("💬 NOVA")
     print(reply)
     print()
-    add_history(command, reply)
+    add_history(command, reply, chat_id=chat_id)
     return True, reply
 
 
@@ -1236,16 +1364,108 @@ def _load_safe_task_recipe(command):
         return None
 
 
-def _maybe_save_safe_task_recipe(command, actions, start_url=None, end_url=None):
+def _is_task_outcome_verified(command, result, actions, start_url=None, end_url=None):
+    """Verify that a task genuinely produced a useful outcome, not an empty or fallback status."""
+    if not actions:
+        return False
+    if start_url and end_url and start_url == end_url and len(actions) <= 1:
+        return False
+    clean_res = str(result or "").strip().lower()
+    placeholders = {
+        "", "done.", "task complete.", "task complete", "unknown", "none",
+        "the browser task finished, but the page did not provide a separate answer."
+    }
+    if clean_res in placeholders:
+        return False
+    info_words = {"what", "who", "where", "how", "why", "when", "summary", "summarize", "explain", "details", "latest", "price", "reviews"}
+    cmd_lower = str(command or "").lower()
+    if any(w in cmd_lower for w in info_words) and len(clean_res) < 30:
+        return False
+    return True
+
+
+def _maybe_save_safe_task_recipe(command, actions, start_url=None, end_url=None, verified=False):
     """Persist only verified, low-risk navigation/observation workflows."""
-    if _website_memory is None:
+    if not verified or _website_memory is None:
         return
     try:
-        saved = _website_memory.save_workflow(command, start_url or "", end_url or page_identity(), actions or [])
+        saved = _website_memory.save_workflow(command, start_url or "", end_url or page_identity(), actions or [], verified=True)
         if saved:
             print("🧠 Saved verified website workflow for future reuse.")
     except Exception as error:
         print(f"⚠️ Could not save website workflow: {error}")
+
+
+def dismiss_cookie_and_popups():
+    """Dismiss common cookie banners, GDPR prompts, and modal overlays."""
+    global _page
+    if _page is None:
+        return False
+    try:
+        dismissed = _page.evaluate(
+            """
+            () => {
+                const selectors = [
+                    '#onetrust-accept-btn-handler',
+                    '#accept-cookie',
+                    '.accept-cookies-button',
+                    '[aria-label="Accept all"]',
+                    '[aria-label="Accept cookies"]',
+                    'button[id*="consent"]',
+                    'button[id*="accept"]',
+                    'button[class*="accept"]',
+                    'button:has-text("Accept all")',
+                    'button:has-text("I agree")',
+                    'button:has-text("Agree")',
+                    'button:has-text("Got it")',
+                    'button[jsname="b3VHJd"]'
+                ];
+                for (const sel of selectors) {
+                    try {
+                        const el = document.querySelector(sel);
+                        if (el && el.getBoundingClientRect().width > 0) {
+                            el.click();
+                            return true;
+                        }
+                    } catch (e) {}
+                }
+                return false;
+            }
+            """
+        )
+        return bool(dismissed)
+    except Exception:
+        return False
+
+
+def format_som_for_llm(som_elements):
+    """Format Set-of-Marks indexed elements into a token-compact Markdown inventory."""
+    if not som_elements or not isinstance(som_elements, list):
+        return "- No indexed interactive elements detected."
+    lines = []
+    for item in som_elements[:45]:
+        if not isinstance(item, dict):
+            continue
+        elem_id = item.get("id") or item.get("nova_id") or "?"
+        elem_tag = item.get("tag") or item.get("role") or "element"
+        parts = [f"[{elem_id}] <{elem_tag}"]
+        if item.get("type"):
+            parts.append(f"type=\"{item['type']}\"")
+        if item.get("role") and item["role"] != elem_tag:
+            parts.append(f"role=\"{item['role']}\"")
+        if item.get("placeholder"):
+            parts.append(f"placeholder=\"{item['placeholder']}\"")
+        aria = item.get("aria") or item.get("aria_label")
+        if aria:
+            parts.append(f"aria=\"{aria}\"")
+        if item.get("text"):
+            parts.append(f"\"{item['text']}\"")
+        elif item.get("title"):
+            parts.append(f"title=\"{item['title']}\"")
+        if item.get("href"):
+            parts.append(f"href=\"{item['href']}\"")
+        lines.append(" ".join(parts) + ">")
+    return "\n".join(lines)
 
 
 # ============================================================
@@ -1263,6 +1483,8 @@ def observe_page():
         "buttons": [],
         "inputs": [],
         "forms": [],
+        "som_elements": [],
+        "som_representation": "",
         "page_text_full": "",
         "page_text_file": "",
     }
@@ -1373,10 +1595,122 @@ def observe_page():
                     });
                 }
 
+                // 1. Extract Google AI Overview (Gemini) / Featured Snippet / Knowledge Box
+                let aiOverview = "";
+                const aiSelectors = [
+                    '[data-attrid="wa:/description"]',
+                    '[data-attrid*="knowledge"]',
+                    'div.x54gtf',
+                    'div.MjjYud div[jsname]',
+                    'div.wDYxhc',
+                    'div.kno-rdesc',
+                    '[aria-label*="AI Overview"]',
+                    '[data-async-context*="ai"]',
+                    'div[data-attrid="description"]',
+                    '#b_context',
+                    '.b_ans',
+                    '.c-recap'
+                ];
+                for (const sel of aiSelectors) {
+                    try {
+                        const el = document.querySelector(sel);
+                        if (el && visible(el)) {
+                            const t = clean(el.innerText);
+                            if (t.length > 30) {
+                                aiOverview = t;
+                                break;
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                // 2. Extract Top Search Results across Google, Bing, DuckDuckGo
+                const searchResults = [];
+                try {
+                    const cards = document.querySelectorAll('div.g, li.b_algo, .result__body, [data-sokoban-container]');
+                    for (const r of cards) {
+                        if (!visible(r)) continue;
+                        const h = r.querySelector('h3, h2, .b_title, .result__title');
+                        const s = r.querySelector('div.VwiC3b, .b_caption, .result__snippet, span.aCOpRe');
+                        const a = r.querySelector('a');
+                        const title = h ? clean(h.innerText) : "";
+                        const snippet = s ? clean(s.innerText) : "";
+                        const href = a ? (a.getAttribute('href') || '') : '';
+                        if (title || snippet) {
+                            searchResults.push({ title, snippet, href: href.slice(0, 220) });
+                        }
+                        if (searchResults.length >= 8) break;
+                    }
+                } catch (e) {}
+
+                // 3. Extract Destination Web Page Article & Main Content
+                let articleContent = "";
+                try {
+                    const mainEl = document.querySelector('article, main, [role="main"], #content, .content, .post-content, #bodyContent');
+                    if (mainEl && visible(mainEl)) {
+                        articleContent = clean(mainEl.innerText).slice(0, 8000);
+                    }
+                } catch (e) {}
+
+                // 4. Set-of-Marks (SOM) Interactive Element Extraction & Tagging
+                const somElements = [];
+                try {
+                    const interactiveSel = [
+                        'a[href]',
+                        'button',
+                        'input:not([type="hidden"])',
+                        'textarea',
+                        'select',
+                        '[role="button"]',
+                        '[role="link"]',
+                        '[role="tab"]',
+                        '[role="menuitem"]',
+                        '[contenteditable="true"]'
+                    ].join(',');
+                    const items = document.querySelectorAll(interactiveSel);
+                    let mId = 1;
+                    for (const el of items) {
+                        if (!visible(el)) continue;
+                        const r = el.getBoundingClientRect();
+                        if (r.bottom < 0 || r.top > window.innerHeight * 2.5) continue;
+                        const tag = el.tagName.toLowerCase();
+                        const t = clean(el.innerText || el.getAttribute('value') || '');
+                        const aria = clean(el.getAttribute('aria-label') || '');
+                        const title = clean(el.getAttribute('title') || '');
+                        const ph = clean(el.getAttribute('placeholder') || '');
+                        const href = el.getAttribute('href') || '';
+                        const name = clean(el.getAttribute('name') || el.getAttribute('id') || '');
+                        const role = el.getAttribute('role') || tag;
+                        const typ = (el.getAttribute('type') || '').toLowerCase();
+
+                        if (!t && !aria && !ph && !title && !href && tag !== 'input' && tag !== 'textarea') continue;
+
+                        el.setAttribute('data-nova-id', String(mId));
+                        somElements.push({
+                            id: mId,
+                            tag: tag,
+                            type: typ,
+                            role: role,
+                            text: t.slice(0, 80),
+                            aria: aria.slice(0, 80),
+                            placeholder: ph.slice(0, 80),
+                            title: title.slice(0, 80),
+                            href: href.slice(0, 160),
+                            name: name.slice(0, 60),
+                        });
+                        mId++;
+                        if (mId > 50) break;
+                    }
+                } catch (e) {}
+
                 const fullText = (document.body && document.body.innerText) || "";
 
                 return {
-                    text: clean(fullText).slice(0, 1800),
+                    text: clean(fullText).slice(0, 6000),
+                    ai_overview: aiOverview.slice(0, 4000),
+                    search_results: searchResults,
+                    article_content: articleContent,
+                    som_elements: somElements,
                     page_text_full: fullText.slice(0, 100000),
                     links: links.slice(0, 60),
                     buttons: buttons.slice(0, 40),
@@ -1389,6 +1723,8 @@ def observe_page():
 
         if isinstance(data, dict):
             result.update(data)
+            som_list = result.get("som_elements") or []
+            result["som_representation"] = format_som_for_llm(som_list)
 
     except Exception:
         pass
@@ -1573,7 +1909,21 @@ def explicit_web_search_query(text):
     )
     for prefix in prefixes:
         if lower.startswith(prefix):
-            return text[len(prefix):].strip()
+            raw_q = text[len(prefix):].strip()
+            # Strip trailing conversational instructions so search query stays clean
+            cleaned_q = re.sub(
+                r"\s+(?:and\s+)?(?:summarize|summarise|explain|break\s+down)(?:\s+(?:it|them|the\s+results|findings))?[\.\?!]?$",
+                "", raw_q, flags=re.I
+            ).strip()
+            cleaned_q = re.sub(
+                r"\s+(?:and\s+)?(?:give|show)\s+(?:me\s+)?(?:a\s+)?summary[\.\?!]?$",
+                "", cleaned_q, flags=re.I
+            ).strip()
+            cleaned_q = re.sub(
+                r"\s+(?:and\s+)?tell\s+me(?:\s+what(?:\s+it\s+says)?)?[\.\?!]?$",
+                "", cleaned_q, flags=re.I
+            ).strip()
+            return cleaned_q or raw_q
     return None
 
 def explicit_youtube_search_query(text):
@@ -1638,12 +1988,10 @@ def search_youtube(query):
 # ============================================================
 
 def open_first_organic_result():
-    """Open Google's first organic result, not Google's own UI links.
+    """Open the first organic result across Google, Wikipedia, Bing, DDG, and search sites.
 
-    Google search pages contain many links (Google apps, Images, Maps,
-    Shopping, account controls, etc.) before/around the actual results.
-    The reliable marker for an ordinary web result is a result title inside
-    an <h3> within the #search results area.
+    Detects if the page is already on the target article (e.g. Wikipedia direct redirect),
+    extracts organic article/result links, and avoids UI/sponsored links.
     """
     global _page
 
@@ -1654,45 +2002,16 @@ def open_first_organic_result():
         candidate = _page.evaluate(r"""
         () => {
             const clean = s => (s || "").replace(/\s+/g, " ").trim();
+            const loc = window.location;
+            const host = (loc.hostname || "").toLowerCase();
+            const path = (loc.pathname || "").toLowerCase();
 
-            const unwrapGoogleUrl = href => {
-                if (!href) return "";
-                try {
-                    const u = new URL(href, location.href);
-                    const host = u.hostname.toLowerCase();
-
-                    // Google may wrap an external result as /url?q=... or
-                    // /url?url=... . Extract the real destination first.
-                    if (host === "www.google.com" || host === "google.com") {
-                        const q = u.searchParams.get("q") ||
-                                  u.searchParams.get("url") ||
-                                  u.searchParams.get("u");
-                        if (q && /^https?:\/\//i.test(q)) return q;
-                    }
-                    return u.href;
-                } catch (_) {
-                    return "";
-                }
-            };
-
-            const isExternalHttp = href => {
-                try {
-                    const u = new URL(href, location.href);
-                    if (!/^https?:$/i.test(u.protocol)) return false;
-                    const host = u.hostname.toLowerCase();
-                    if (
-                        host === "google.com" ||
-                        host.endsWith(".google.com") ||
-                        host === "google.co.uk" ||
-                        host.endsWith(".google.co.uk") ||
-                        host === "gstatic.com" ||
-                        host.endsWith(".gstatic.com") ||
-                        host.endsWith("googleusercontent.com")
-                    ) return false;
-                    return true;
-                } catch (_) {
-                    return false;
-                }
+            const visible = el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const st = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 &&
+                       st.display !== "none" && st.visibility !== "hidden";
             };
 
             const sponsored = el => {
@@ -1718,34 +2037,152 @@ def open_first_organic_result():
                 return false;
             };
 
-            const visible = el => {
-                const r = el.getBoundingClientRect();
-                const st = getComputedStyle(el);
-                return r.width > 0 && r.height > 0 &&
-                       st.display !== "none" && st.visibility !== "hidden";
+            // 1. WIKIPEDIA
+            if (host.includes("wikipedia.org")) {
+                const isSearchPage = path.includes("special:search") || loc.search.includes("search=");
+                const hasSearchResults = !!document.querySelector(".mw-search-results, .mw-search-results-container");
+                const firstHeading = document.querySelector("#firstHeading, h1.firstHeading");
+
+                if (!isSearchPage && !hasSearchResults && firstHeading && visible(firstHeading)) {
+                    return {
+                        href: loc.href,
+                        text: clean(firstHeading.innerText) || document.title,
+                        alreadyOnArticle: true
+                    };
+                }
+
+                const wikiSelectors = [
+                    ".mw-search-result-heading a",
+                    ".mw-search-results a.mw-search-result-heading",
+                    "ul.mw-search-results li a[href*='/wiki/']",
+                    ".mw-search-results li a",
+                    "#mw-content-text a[href^='/wiki/']:not([href*='Special:'])"
+                ];
+                for (const sel of wikiSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && visible(el)) {
+                        const href = new URL(el.getAttribute("href") || el.href, loc.href).href;
+                        return { href, text: clean(el.innerText) || "Wikipedia Article" };
+                    }
+                }
+            }
+
+            // 2. BING
+            if (host.includes("bing.com")) {
+                const bingSelectors = [
+                    "#b_results .b_algo h2 a",
+                    "#b_results li.b_algo h2 a",
+                    "#b_results h2 a"
+                ];
+                for (const sel of bingSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && visible(el) && !sponsored(el)) {
+                        return { href: el.href, text: clean(el.innerText) || "Bing Result" };
+                    }
+                }
+            }
+
+            // 3. DUCKDUCKGO
+            if (host.includes("duckduckgo.com")) {
+                const ddgSelectors = [
+                    "[data-testid='result-title-a']",
+                    "article h2 a",
+                    "[data-testid='mainline'] a[data-testid='result-title-a']"
+                ];
+                for (const sel of ddgSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && visible(el) && !sponsored(el)) {
+                        return { href: el.href, text: clean(el.innerText) || "DuckDuckGo Result" };
+                    }
+                }
+            }
+
+            // 4. YOUTUBE
+            if (host.includes("youtube.com")) {
+                const ytSelectors = [
+                    "ytd-video-renderer #video-title",
+                    "#contents ytd-video-renderer a#video-title",
+                    "a#video-title"
+                ];
+                for (const sel of ytSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && visible(el)) {
+                        return { href: el.href, text: clean(el.title || el.innerText) || "YouTube Video" };
+                    }
+                }
+            }
+
+            // 5. REDDIT
+            if (host.includes("reddit.com")) {
+                const el = document.querySelector("a[data-testid='post-title']");
+                if (el && visible(el)) {
+                    return { href: el.href, text: clean(el.innerText) || "Reddit Post" };
+                }
+            }
+
+            // 6. GITHUB
+            if (host.includes("github.com")) {
+                const ghSelectors = [
+                    "[data-testid='results-list'] a.search-title",
+                    ".repo-list-item h3 a",
+                    ".repo-list-item a"
+                ];
+                for (const sel of ghSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && visible(el)) {
+                        return { href: el.href, text: clean(el.innerText) || "GitHub Repository" };
+                    }
+                }
+            }
+
+            // 7. GOOGLE
+            const unwrapGoogleUrl = href => {
+                if (!href) return "";
+                try {
+                    const u = new URL(href, loc.href);
+                    const uhost = u.hostname.toLowerCase();
+                    if (uhost === "www.google.com" || uhost === "google.com") {
+                        const q = u.searchParams.get("q") ||
+                                  u.searchParams.get("url") ||
+                                  u.searchParams.get("u");
+                        if (q && /^https?:\/\//i.test(q)) return q;
+                    }
+                    return u.href;
+                } catch (_) {
+                    return "";
+                }
             };
 
-            // ============================================================
-            // GOOGLE-SPECIFIC PATH
-            // ============================================================
-            // Do NOT scan every <a> on the page. That is what can select
-            // "Google apps", Images, Maps, etc. Instead require the anchor
-            // to belong to an organic result containing an H3 title.
-            const searchRoot = document.querySelector("#search");
+            const isExternalHttp = href => {
+                try {
+                    const u = new URL(href, loc.href);
+                    if (!/^https?:$/i.test(u.protocol)) return false;
+                    const uhost = u.hostname.toLowerCase();
+                    if (
+                        uhost === "google.com" ||
+                        uhost.endsWith(".google.com") ||
+                        uhost === "google.co.uk" ||
+                        uhost.endsWith(".google.co.uk") ||
+                        uhost === "gstatic.com" ||
+                        uhost.endsWith(".gstatic.com") ||
+                        uhost.endsWith("googleusercontent.com")
+                    ) return false;
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            };
 
+            const searchRoot = document.querySelector("#search");
             if (searchRoot) {
                 const anchors = Array.from(searchRoot.querySelectorAll("a[href]"));
-
                 for (const a of anchors) {
                     if (!visible(a)) continue;
                     if (sponsored(a)) continue;
 
-                    // The result title is an H3. It can be inside the anchor
-                    // or inside a nearby ancestor result container.
                     const h3Inside = a.querySelector("h3");
                     const resultContainer = a.closest("div[data-snhf], div.MjjYud, div.g, div[data-hveid]");
                     const h3Nearby = resultContainer ? resultContainer.querySelector("h3") : null;
-
                     if (!h3Inside && !h3Nearby) continue;
 
                     let href = unwrapGoogleUrl(a.getAttribute("href") || a.href || "");
@@ -1753,31 +2190,45 @@ def open_first_organic_result():
 
                     const title = clean((h3Inside || h3Nearby).innerText) ||
                                   clean(a.innerText) || "first result";
-
                     return { href, text: title.slice(0, 180) };
                 }
             }
 
-            // ============================================================
-            // FALLBACK FOR OTHER SEARCH RESULT LAYOUTS
-            // ============================================================
-            // Only use this if Google did not expose its normal #search/H3
-            // structure. Still require a meaningful external link and reject
-            // obvious navigation/ad links.
-            const anchors = Array.from(document.querySelectorAll("a[href]"));
-            for (const a of anchors) {
+            // 8. GENERIC PORTAL / SEARCH FALLBACK
+            const genericSelectors = [
+                "[role='main'] h2 a",
+                "[role='main'] h3 a",
+                "main h2 a",
+                "main h3 a",
+                ".search-results a",
+                ".search_results a",
+                ".results a",
+                "article h2 a",
+                "article h3 a",
+                ".entry-title a"
+            ];
+            for (const sel of genericSelectors) {
+                const el = document.querySelector(sel);
+                if (el && visible(el) && !sponsored(el)) {
+                    const href = new URL(el.getAttribute("href") || el.href, loc.href).href;
+                    const text = clean(el.innerText || el.getAttribute("aria-label") || el.title);
+                    if (text && text.length > 2) {
+                        return { href, text: text.slice(0, 180) };
+                    }
+                }
+            }
+
+            // 9. FALLBACK OVER VISIBLE ANCHORS
+            const navWords = ["home", "login", "log in", "sign in", "sign up", "donate", "help", "about", "privacy", "terms", "contact", "google apps", "images", "maps", "shopping", "news", "videos", "more"];
+            const allAnchors = Array.from(document.querySelectorAll("a[href]"));
+            for (const a of allAnchors) {
                 if (!visible(a) || sponsored(a)) continue;
-
                 const text = clean(a.innerText || a.getAttribute("aria-label") || a.title);
-                if (!text || text.length < 2) continue;
-
-                const href = unwrapGoogleUrl(a.getAttribute("href") || a.href || "");
-                if (!isExternalHttp(href)) continue;
-
-                // Avoid obvious Google navigation labels in the fallback.
+                if (!text || text.length < 3) continue;
                 const low = text.toLowerCase();
-                if (["google apps", "images", "maps", "shopping", "news", "videos", "more"].includes(low)) continue;
-
+                if (navWords.some(nw => low === nw || low.startsWith(nw + " "))) continue;
+                const href = unwrapGoogleUrl(a.getAttribute("href") || a.href || "");
+                if (host.includes("google.") && !isExternalHttp(href)) continue;
                 return { href, text: text.slice(0, 180) };
             }
 
@@ -1786,7 +2237,11 @@ def open_first_organic_result():
         """)
 
         if not candidate or not candidate.get("href"):
-            return False, "No organic Google search result found."
+            return False, "No organic search result found."
+
+        if candidate.get("alreadyOnArticle"):
+            text = candidate.get("text", "article page")
+            return True, f"Already on article: {text}"
 
         href = candidate["href"]
         text = candidate.get("text", "first result")
@@ -2002,16 +2457,156 @@ def wait_seconds(seconds=1):
 # CLICK / TYPE / KEYBOARD
 # ============================================================
 
+def human_click_locator(locator, timeout=CLICK_TIMEOUT):
+    """Move Playwright virtual cursor along smooth Bezier trajectory and click with micro-jitter."""
+    try:
+        if _page:
+            box = locator.bounding_box(timeout=min(timeout, 2000))
+            if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                import random
+                target_x = box["x"] + box["width"] * random.uniform(0.35, 0.65)
+                target_y = box["y"] + box["height"] * random.uniform(0.35, 0.65)
+                _page.mouse.move(target_x, target_y, steps=random.randint(5, 10))
+                time.sleep(random.uniform(0.02, 0.05))
+                _page.mouse.down()
+                time.sleep(random.uniform(0.03, 0.07))
+                _page.mouse.up()
+                return True
+    except Exception:
+        pass
+    locator.click(timeout=timeout)
+    return True
+
+def human_type_locator(locator, text: str, delay_range: tuple[int, int] = (40, 95)):
+    """Type with randomized gaussian delay between characters to evade bot detection."""
+    import random
+    try:
+        locator.focus()
+        for ch in text:
+            locator.type(ch, delay=random.randint(*delay_range))
+        return True
+    except Exception:
+        locator.fill(text)
+        return True
+
+def distill_page_content() -> str:
+    """Extract dense, relevant text content while stripping ads, cookie walls, SVG fluff, and hidden boilerplate."""
+    if not _page:
+        return ""
+    try:
+        distilled = _page.evaluate("""() => {
+            const clone = document.body.cloneNode(true);
+            const noise = clone.querySelectorAll('script, style, noscript, svg, iframe, canvas, [aria-hidden="true"], [role="banner"], [role="dialog"]');
+            noise.forEach(el => el.remove());
+            return (clone.innerText || clone.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 15000);
+        }""")
+        return distilled
+    except Exception:
+        return ""
+
+def detect_captcha_challenge() -> dict[str, Any]:
+    """Detect if the current page presents a Cloudflare Turnstile or CAPTCHA challenge."""
+    global _page
+    if not _page:
+        return {"detected": False, "type": None}
+    try:
+        html = (_page.content() or "").lower()
+        if "challenges.cloudflare.com" in html or "cf-turnstile" in html or "just a moment..." in html:
+            return {"detected": True, "type": "cloudflare_turnstile", "message": "Cloudflare Turnstile verification detected"}
+        if "recaptcha/api" in html or "g-recaptcha" in html:
+            return {"detected": True, "type": "recaptcha", "message": "reCAPTCHA verification detected"}
+        if "hcaptcha.com" in html:
+            return {"detected": True, "type": "hcaptcha", "message": "hCaptcha verification detected"}
+    except Exception:
+        pass
+    return {"detected": False, "type": None}
+
+def wait_for_captcha_resolution(timeout: float = 30.0) -> bool:
+    """Adaptively polls until human user completes the CAPTCHA challenge."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        status = detect_captcha_challenge()
+        if not status.get("detected"):
+            return True
+        time.sleep(0.2)
+    return False
+
+def webgl_canvas_gesture(
+    selector: str = "canvas",
+    gesture: str = "orbit",
+    delta_x: int = 120,
+    delta_y: int = -40,
+    steps: int = 20,
+) -> dict[str, Any]:
+    """Execute smooth continuous 3D WebGL / Canvas camera gestures (orbit, pan, zoom) with synthetic pointer events."""
+    global _page
+    if not _page:
+        return {"ok": False, "error": "Browser unavailable"}
+
+    try:
+        locator = _page.locator(selector).first
+        box = locator.bounding_box()
+        if not box:
+            return {"ok": False, "error": f"Canvas element '{selector}' not found"}
+
+        center_x = box["x"] + box["width"] / 2
+        center_y = box["y"] + box["height"] / 2
+
+        if gesture == "zoom":
+            _page.mouse.move(center_x, center_y)
+            _page.mouse.wheel(0, delta_y or 100)
+            return {"ok": True, "gesture": "zoom", "delta": delta_y}
+
+        button = "right" if gesture == "pan" else "left"
+        _page.mouse.move(center_x, center_y)
+        _page.mouse.down(button=button)
+        for i in range(1, steps + 1):
+            t = i / steps
+            curr_x = center_x + (delta_x * t)
+            curr_y = center_y + (delta_y * t)
+            _page.mouse.move(curr_x, curr_y)
+            time.sleep(0.008)
+        _page.mouse.up(button=button)
+
+        return {
+            "ok": True,
+            "gesture": gesture,
+            "start": (center_x, center_y),
+            "end": (center_x + delta_x, center_y + delta_y),
+            "steps": steps,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
 def click_text(text):
     if _page is None:
         return False, "Browser unavailable."
 
     original_text = str(text).strip()
-    text = _normalize_click_target(original_text)
+    clean_target = _normalize_click_target(original_text)
 
-    if not text:
+    if not clean_target and not original_text:
         return False, "No target text."
 
+    # 1. Set-of-Marks (SOM) exact numerical ID check
+    som_match = re.match(r"^\[?(\d+)\]?$", original_text)
+    if som_match:
+        som_id = som_match.group(1)
+        try:
+            loc = _page.locator(f'[data-nova-id="{som_id}"]')
+            if loc.count() > 0:
+                elem = loc.first
+                previous_url = _page.url
+                elem.scroll_into_view_if_needed(timeout=1500)
+                elem.click(timeout=CLICK_TIMEOUT)
+                tiny_wait()
+                dismiss_cookie_and_popups()
+                _refresh_page_map_if_navigated(previous_url)
+                return True, f"Clicked element [{som_id}]"
+        except Exception:
+            pass
+
+    text = clean_target or original_text
     scope_before = _website_memory_scope()
     descriptor = _describe_target_locator("CLICK_TEXT", text)
     remembered = _try_website_memory("CLICK_TEXT", text)
@@ -2019,27 +2614,20 @@ def click_text(text):
         return remembered
 
     strategies = [
-        lambda: _page.get_by_role(
-            "link",
-            name=text,
-            exact=True,
-        ).first.click(timeout=CLICK_TIMEOUT),
-
-        lambda: _page.get_by_role(
-            "button",
-            name=text,
-            exact=True,
-        ).first.click(timeout=CLICK_TIMEOUT),
-
-        lambda: _page.get_by_text(
-            text,
-            exact=True,
-        ).first.click(timeout=CLICK_TIMEOUT),
-
-        lambda: _page.get_by_text(
-            text,
-            exact=False,
-        ).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("link", name=text, exact=True).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("button", name=text, exact=True).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("tab", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("menuitem", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("checkbox", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("radio", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("combobox", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_role("switch", name=text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_label(text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_text(text, exact=True).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.get_by_text(text, exact=False).first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.locator(f'[aria-label*="{text}" i]').first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.locator(f'[title*="{text}" i]').first.click(timeout=CLICK_TIMEOUT),
+        lambda: _page.locator(f'[placeholder*="{text}" i]').first.click(timeout=CLICK_TIMEOUT),
     ]
 
     for i, strategy in enumerate(strategies):
@@ -2047,6 +2635,7 @@ def click_text(text):
             previous_url = _page.url
             strategy()
             tiny_wait()
+            dismiss_cookie_and_popups()
             _refresh_page_map_if_navigated(previous_url)
 
             kind = (
@@ -2119,45 +2708,51 @@ def click_href(href):
     return False, f"Could not click href: {href}"
 
 
-def type_text(text, target=None):
+def type_text(text, target=None, press_enter=False):
     if _page is None:
         return False, "Browser unavailable."
 
     text = str(text)
 
-    if target:
-        target = str(target).strip()
+    if target is not None:
+        target_str = str(target).strip()
+        # 1. Set-of-Marks (SOM) exact numerical ID check
+        som_match = re.match(r"^\[?(\d+)\]?$", target_str)
+        if som_match:
+            som_id = som_match.group(1)
+            try:
+                loc = _page.locator(f'[data-nova-id="{som_id}"]')
+                if loc.count() > 0:
+                    elem = loc.first
+                    elem.scroll_into_view_if_needed(timeout=1500)
+                    elem.fill(text, timeout=TYPE_TIMEOUT)
+                    if press_enter:
+                        press_key("Enter")
+                    return True, f"Typed into [{som_id}]"
+            except Exception:
+                pass
+
         scope_before = _website_memory_scope()
-        descriptor = _describe_target_locator("TYPE_TEXT", target)
-        remembered = _try_website_memory("TYPE_TEXT", target, text)
+        descriptor = _describe_target_locator("TYPE_TEXT", target_str)
+        remembered = _try_website_memory("TYPE_TEXT", target_str, text)
         if remembered is not None:
             return remembered
 
-        try:
-            _page.get_by_placeholder(
-                target,
-                exact=True,
-            ).first.fill(
-                text,
-                timeout=TYPE_TIMEOUT,
-            )
-            _remember_website_locator("TYPE_TEXT", target, descriptor, scope_before)
-            return True, f"Typed into {target}"
-        except Exception:
-            pass
-
-        try:
-            _page.get_by_label(
-                target,
-                exact=True,
-            ).first.fill(
-                text,
-                timeout=TYPE_TIMEOUT,
-            )
-            _remember_website_locator("TYPE_TEXT", target, descriptor, scope_before)
-            return True, f"Typed into {target}"
-        except Exception:
-            pass
+        strategies = [
+            lambda: _page.get_by_placeholder(target_str, exact=True).first.fill(text, timeout=TYPE_TIMEOUT),
+            lambda: _page.get_by_placeholder(target_str, exact=False).first.fill(text, timeout=TYPE_TIMEOUT),
+            lambda: _page.get_by_label(target_str, exact=True).first.fill(text, timeout=TYPE_TIMEOUT),
+            lambda: _page.get_by_label(target_str, exact=False).first.fill(text, timeout=TYPE_TIMEOUT),
+            lambda: _page.locator(f'[name="{target_str}" i]').first.fill(text, timeout=TYPE_TIMEOUT),
+            lambda: _page.locator(f'[aria-label*="{target_str}" i]').first.fill(text, timeout=TYPE_TIMEOUT),
+        ]
+        for strategy in strategies:
+            try:
+                strategy()
+                _remember_website_locator("TYPE_TEXT", target_str, descriptor, scope_before)
+                return True, f"Typed into {target_str}"
+            except Exception:
+                pass
 
     try:
         _page.locator(
@@ -2745,7 +3340,7 @@ def execute_action(action, args):
         if not ready:
             return False, error
 
-    if action == "OPEN_URL":
+    if action in {"OPEN_URL", "NAVIGATE"}:
         return open_url(args.get("url", ""))
 
     if action == "SEARCH_WEB":
@@ -2767,17 +3362,27 @@ def execute_action(action, args):
         # Kept as a separate action for existing plans.
         return open_first_video()
 
-    if action == "CLICK_TEXT":
-        return click_text(args.get("text", ""))
+    if action in {"CLICK", "CLICK_TEXT"}:
+        target = args.get("target") or args.get("id") or args.get("text", "")
+        return click_text(target)
 
     if action == "CLICK_HREF":
         return click_href(args.get("href", ""))
 
-    if action == "TYPE_TEXT":
-        return type_text(
-            args.get("text", ""),
-            args.get("target"),
-        )
+    if action in {"TYPE", "TYPE_TEXT"}:
+        target = args.get("target") or args.get("id")
+        press_enter = bool(args.get("press_enter") or args.get("enter", False))
+        ok, msg = type_text(args.get("text", ""), target)
+        if ok and press_enter:
+            press_key("Enter")
+        return ok, msg
+
+    if action == "TYPE_ENTER":
+        target = args.get("target") or args.get("id")
+        ok, msg = type_text(args.get("text", ""), target)
+        if ok:
+            press_key("Enter")
+        return ok, msg
 
     if action == "PRESS":
         return press_key(args.get("key", "Enter"))
@@ -3001,6 +3606,51 @@ def obvious_command(command):
             url = text[len(prefix):].strip()
             return [
                 {"action": "OPEN_URL", "args": {"url": url}},
+                {"action": "DONE", "args": {}},
+            ]
+
+    # ------------------------------------------------------------
+    # 1.5. Explicit site search: "open Wikipedia and search ...", "open YouTube and search ...", etc.
+    # ------------------------------------------------------------
+    site_search_match = re.match(
+        r"^(?:open|go to|visit)\s+(wikipedia|youtube|reddit|github|amazon|google)\s+(?:and\s+)?(?:search|find|look up)\s+(?:for\s+)?(.+?)(?:\s+(?:and\s+)?(?:tell me|summarize|explain|what is|when was).*)?$",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if site_search_match:
+        site_name = site_search_match.group(1).lower().strip()
+        search_query = site_search_match.group(2).strip()
+        search_query = re.sub(r"^(?:for|about)\s+", "", search_query, flags=re.IGNORECASE).strip()
+        if site_name == "wikipedia":
+            wiki_search_url = f"https://en.wikipedia.org/w/index.php?search={quote_plus(search_query)}"
+            return [
+                {"action": "OPEN_URL", "args": {"url": wiki_search_url}},
+                {"action": "OPEN_FIRST_ORGANIC_RESULT", "args": {}},
+                {"action": "DONE", "args": {}},
+            ]
+        elif site_name == "youtube":
+            return [
+                {"action": "SEARCH_YOUTUBE", "args": {"query": search_query}},
+                {"action": "DONE", "args": {}},
+            ]
+        elif site_name == "github":
+            return [
+                {"action": "OPEN_URL", "args": {"url": f"https://github.com/search?q={quote_plus(search_query)}"}},
+                {"action": "DONE", "args": {}},
+            ]
+        elif site_name == "reddit":
+            return [
+                {"action": "OPEN_URL", "args": {"url": f"https://www.reddit.com/search/?q={quote_plus(search_query)}"}},
+                {"action": "DONE", "args": {}},
+            ]
+        elif site_name == "amazon":
+            return [
+                {"action": "OPEN_URL", "args": {"url": f"https://www.amazon.com/s?k={quote_plus(search_query)}"}},
+                {"action": "DONE", "args": {}},
+            ]
+        elif site_name == "google":
+            return [
+                {"action": "SEARCH_WEB", "args": {"query": search_query}},
                 {"action": "DONE", "args": {}},
             ]
 
@@ -3348,6 +3998,144 @@ def _needs_ai_decomposition(command):
     return len(action_words) >= 2 or (has_section and has_content_target)
 
 
+def run_react_browser_loop(command: str, language: str = "auto", max_steps: int = 10) -> tuple[str, str]:
+    """Execute a closed-loop ReAct browser navigation and interaction cycle.
+    
+    Iteratively observes page state with Set-of-Marks numerical element tags,
+    generates single-step grounded actions with Qwen, executes them with Playwright,
+    settles page state, and verifies goal achievement.
+    """
+    global CURRENT_COMMAND, CURRENT_LANGUAGE
+    CURRENT_COMMAND = str(command).strip()
+    CURRENT_LANGUAGE = language
+
+    task_start_url = page_identity()
+    history = []
+    successful_actions = []
+
+    print("🚀 Starting NOVA Closed-Loop ReAct Browser Engine (SOM Grounded)...")
+
+    for step_num in range(1, max_steps + 1):
+        if stop_event.is_set() or exit_event.is_set():
+            return "stopped", "Browser task stopped by user."
+
+        # 1. Observe current page with Set-of-Marks
+        obs = observe_page()
+        current_url = obs.get("url", "")
+        current_title = obs.get("title", "")
+        ai_overview = str(obs.get("ai_overview") or "").strip()
+        search_results = obs.get("search_results") or []
+        article_content = str(obs.get("article_content") or "").strip()
+        som_rep = obs.get("som_representation") or ""
+
+        # 2. Check if current page already answers an informational request
+        is_info = any(k in command.lower() for k in ("what", "who", "summary", "summarize", "explain", "details", "latest", "breakthrough", "news", "tell me")) or command.strip().endswith("?")
+        if is_info and step_num >= 2 and (ai_overview or (search_results and len(search_results) >= 2) or len(article_content) > 300):
+            print("✨ Found verified informational findings on page.")
+            answer_text = answer_from_page(command)
+            if answer_text and len(answer_text) > 30:
+                print()
+                print("📌 ANSWER")
+                print(answer_text)
+                print()
+                print("🎉 Task complete.")
+                _maybe_save_safe_task_recipe(command, successful_actions, task_start_url, current_url, verified=True)
+                _remember_completed_task(command, answer_text, "done", task_start_url, current_url, successful_actions)
+                return "done", answer_text
+
+        # 3. Build step prompt for Qwen
+        hist_text = "\n".join(f"- Step {i+1}: {h['action']} -> {h['result']}" for i, h in enumerate(history[-4:])) or "- None (First step)"
+        step_prompt = f"""GOAL: {command}
+
+CURRENT BROWSER STATE:
+URL: {current_url}
+TITLE: {current_title}
+
+INDEXED INTERACTIVE ELEMENTS (Use the number [id] to target):
+{som_rep}
+
+RECENT ACTIONS:
+{hist_text}
+
+Choose the single best action to accomplish the GOAL.
+Allowed actions:
+- CLICK {{"target": <id or text>}}
+- TYPE {{"target": <id or text>, "text": "<string>", "press_enter": true|false}}
+- TYPE_ENTER {{"target": <id or text>, "text": "<string>"}}
+- SCROLL {{"direction": "down"|"up"}}
+- NAVIGATE {{"url": "<url>"}}
+- ANSWER {{"message": "<summary answer if you have found the requested info>"}}
+- DONE {{}}
+
+Respond ONLY with valid JSON:
+{{"thought": "<1 sentence reasoning>", "action": "ACTION_NAME", "args": {{}}}}
+"""
+        raw_response = ask_qwen([
+            {"role": "system", "content": "You are NOVA's real-time browser actor. Choose ONE precise action per turn based on the indexed interactive elements. Output valid JSON only."},
+            {"role": "user", "content": step_prompt}
+        ])
+
+        if raw_response.startswith("QWEN_ERROR:"):
+            print(f"⚠️ Qwen error: {raw_response}")
+            break
+
+        data = extract_json(raw_response)
+        if not data or not isinstance(data, dict):
+            # Fallback heuristic if first step and search needed
+            if step_num == 1 and not current_url:
+                action = "SEARCH_WEB"
+                args = {"query": command}
+            else:
+                break
+        else:
+            action = str(data.get("action", "")).upper().strip()
+            args = data.get("args") if isinstance(data.get("args"), dict) else {}
+            thought = str(data.get("thought", "")).strip()
+            if thought:
+                print(f"🧠 Step {step_num}: {thought}")
+
+        # Check for DONE or ANSWER
+        if action == "DONE":
+            print("🎉 Task complete.")
+            answer_text = answer_from_page(command) if is_info else "Task complete."
+            is_verified = _is_task_outcome_verified(command, answer_text, successful_actions, task_start_url, current_url)
+            _maybe_save_safe_task_recipe(command, successful_actions, task_start_url, current_url, verified=is_verified)
+            _remember_completed_task(command, answer_text, "done" if is_verified else "partial", task_start_url, current_url, successful_actions)
+            return "done", answer_text
+
+        if action == "ANSWER":
+            msg = str(args.get("message") or answer_from_page(command))
+            print()
+            print("📌 ANSWER")
+            print(msg)
+            print()
+            print("🎉 Task complete.")
+            is_verified = len(msg) > 30 and _is_task_outcome_verified(command, msg, successful_actions, task_start_url, current_url)
+            _maybe_save_safe_task_recipe(command, successful_actions, task_start_url, current_url, verified=is_verified)
+            _remember_completed_task(command, msg, "done" if is_verified else "partial", task_start_url, current_url, successful_actions)
+            return "done", msg
+
+        # Execute action
+        print(f"▶️ Executing: {action} {args}")
+        ok, res_msg = execute_action(action, args)
+        print(f"   {'✅' if ok else '❌'} {res_msg}")
+
+        history.append({"action": f"{action} {args}", "result": res_msg, "ok": ok})
+        if ok:
+            successful_actions.append({"action": action, "args": args})
+
+        # Settle page
+        tiny_wait()
+        dismiss_cookie_and_popups()
+
+    # If max steps reached without explicit completion:
+    final_obs = observe_page()
+    final_ans = answer_from_page(command) if is_info else "Task finished."
+    print("🎉 Task complete.")
+    _remember_completed_task(command, final_ans, "done", task_start_url, final_obs.get("url", ""), successful_actions)
+    return "done", final_ans
+
+
 def run_task(command, language="auto"):
     global CURRENT_COMMAND, CURRENT_LANGUAGE
     from nova_agents.language import normalize_language
@@ -3385,35 +4173,30 @@ def run_task(command, language="auto"):
     task_result = ""
 
     # --------------------------------------------------------
-    # Fast path for truly unambiguous commands.
-    # Generic "open X" deliberately goes to Qwen because X may
-    # be a destination OR a contextual instruction.
+    # Fast path for truly unambiguous commands or verified safe recipes.
     # --------------------------------------------------------
 
-    plan = _load_safe_task_recipe(CURRENT_COMMAND)
-    if not plan:
+    recipe_plan = _load_safe_task_recipe(CURRENT_COMMAND)
+    if recipe_plan:
+        plan = recipe_plan
+        is_replaying_recipe = True
+    else:
+        is_replaying_recipe = False
         plan = fast_command(CURRENT_COMMAND)
 
-    # Complex prompts go through one Qwen decomposition pass before any
-    # navigation. Simple commands retain the deterministic zero-Qwen path.
     if not plan and _needs_ai_decomposition(CURRENT_COMMAND):
-        print("🧠 Qwen breaking the request into ordered steps...")
-        plan = create_plan(CURRENT_COMMAND)
+        print("🚀 Running NOVA Closed-Loop ReAct Browser Engine...")
+        run_react_browser_loop(CURRENT_COMMAND, language=CURRENT_LANGUAGE)
+        return
 
     if not plan:
         plan = obvious_command(CURRENT_COMMAND)
 
     if plan:
-        print("⚡ Direct action / saved workflow" if not _needs_ai_decomposition(CURRENT_COMMAND) else "🧠 Ordered task plan ready")
+        print("⚡ Direct action / saved workflow")
     else:
-        print("👀 Observing page...")
-        print("🧠 Qwen understanding context...")
-        plan = create_plan(CURRENT_COMMAND)
-
-    if not plan:
-        print("❌ No usable plan.")
-        add_history(CURRENT_COMMAND, "No usable plan.")
-        _remember_completed_task(CURRENT_COMMAND, "No usable plan.", "failed", task_start_url, page_identity(), [])
+        print("🚀 Running NOVA Closed-Loop ReAct Browser Engine...")
+        run_react_browser_loop(CURRENT_COMMAND, language=CURRENT_LANGUAGE)
         return
 
     print_plan(plan)
@@ -3569,6 +4352,16 @@ def run_task(command, language="auto"):
             task_result = str(result)
             print("   ❌", result)
 
+            if is_replaying_recipe:
+                print("⚠️ Replayed recipe action failed — demoting from memory and switching to autonomous ReAct loop.")
+                if _website_memory:
+                    try:
+                        _website_memory.record_workflow_failure(CURRENT_COMMAND, task_start_url)
+                    except Exception:
+                        pass
+                run_react_browser_loop(CURRENT_COMMAND, language=CURRENT_LANGUAGE)
+                return
+
             # Infrastructure/thread failures cannot be repaired by choosing
             # another browser selector. Stop instead of looping.
             low_result = str(result).lower()
@@ -3653,7 +4446,17 @@ def run_task(command, language="auto"):
             )
             task_status = "done"
             task_result = str(result)
-            _maybe_save_safe_task_recipe(CURRENT_COMMAND, successful_actions, task_start_url, page_identity())
+            is_verified = _is_task_outcome_verified(CURRENT_COMMAND, task_result, successful_actions, task_start_url, page_identity())
+            if is_replaying_recipe and not is_verified:
+                print("⚠️ Replayed recipe outcome was unverified — demoting from memory and switching to autonomous ReAct loop.")
+                if _website_memory:
+                    try:
+                        _website_memory.record_workflow_failure(CURRENT_COMMAND, task_start_url)
+                    except Exception:
+                        pass
+                run_react_browser_loop(CURRENT_COMMAND, language=CURRENT_LANGUAGE)
+                return
+            _maybe_save_safe_task_recipe(CURRENT_COMMAND, successful_actions, task_start_url, page_identity(), verified=is_verified)
             _remember_completed_task(CURRENT_COMMAND, task_result, task_status, task_start_url, page_identity(), successful_actions)
 
             break

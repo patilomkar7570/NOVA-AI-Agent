@@ -11,7 +11,7 @@ class RegistryTests(unittest.TestCase):
         ids = [profile["id"] for profile in profiles]
         self.assertEqual(ids, list(agent_ids()))
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(set(ids), {"reaction", "chat", "browser", "research"})
+        self.assertEqual(set(ids), {"reaction", "chat", "browser", "research", "computer", "coder"})
         for profile in profiles:
             self.assertTrue(profile["name"])
             self.assertTrue(profile["description"])
@@ -24,8 +24,8 @@ class RegistryTests(unittest.TestCase):
 
     def test_development_version_is_explicit(self):
         self.assertEqual(APP_NAME, "NOVA")
-        self.assertEqual(APP_VERSION, "0.5.0-alpha")
-        self.assertEqual(RELEASE_CHANNEL, "development")
+        self.assertEqual(APP_VERSION, "0.6.0-beta")
+        self.assertEqual(RELEASE_CHANNEL, "beta")
 
 
 if __name__ == "__main__":

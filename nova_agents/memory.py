@@ -583,3 +583,41 @@ class SharedMemory:
             "execution_steps": int(steps), "interrupted_runs": int(interrupted),
             "conversation_summaries": int(summaries),
         }
+
+
+class ContextCompactor:
+    """Condenses past turns and execution history into a structured entity ledger
+    to prevent context window saturation while preserving critical facts and preferences.
+    """
+
+    def __init__(self, memory: SharedMemory):
+        self.memory = memory
+
+    def compact_conversation(self, conversation_id: str, max_recent_turns: int = 6) -> dict[str, Any]:
+        """Compact conversation turns into a persistent state summary."""
+        history = self.memory.export_conversation_memory(conversation_id)
+        turns = history.get("turns", [])
+        if len(turns) <= max_recent_turns:
+            return {"compacted": False, "reason": "Turns within budget", "turns_count": len(turns)}
+
+        older_turns = turns[:-max_recent_turns]
+        recent_turns = turns[-max_recent_turns:]
+
+        key_facts = []
+        for turn in older_turns:
+            cmd = str(turn.get("command") or "").strip()
+            res = str(turn.get("result") or "").strip()
+            if cmd:
+                key_facts.append(f"User requested: {cmd[:140]}")
+            if res:
+                key_facts.append(f"NOVA outcome: {res[:140]}")
+
+        summary_text = "\n".join(f"- {fact}" for fact in key_facts[-12:])
+        self.memory.save_conversation_summary(conversation_id, summary_text)
+
+        return {
+            "compacted": True,
+            "compacted_turns": len(older_turns),
+            "retained_turns": len(recent_turns),
+            "summary": summary_text,
+        }

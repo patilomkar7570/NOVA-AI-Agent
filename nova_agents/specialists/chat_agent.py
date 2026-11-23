@@ -1,5 +1,21 @@
-"""Chat specialist backed by NOVA's shared Qwen model."""
 from __future__ import annotations
+import sys
+
+def _safe_print(*args, **kwargs):
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        try:
+            sep = kwargs.get("sep", " ")
+            end = kwargs.get("end", "\n")
+            text = sep.join(str(a) for a in args) + end
+            encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+            sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+"""Chat specialist backed by NOVA's shared Qwen model."""
 
 from ..contracts import AgentResult, TaskRequest
 
@@ -13,6 +29,15 @@ NOVA_RESPONSE_STYLE_INSTRUCTIONS = """MANDATORY USER-FACING RESPONSE FORMAT:
 - Keep simple answers compact but retain title, points, and summary.
 - Match the user's language, be accurate, and distinguish uncertainty. Never reveal hidden reasoning.
 """
+
+
+def _record_chat_history(agent_module, command: str, reply: str, conversation_id: str | None = None) -> None:
+    add_history = getattr(agent_module, "add_history", None)
+    if callable(add_history):
+        try:
+            add_history(command, reply, chat_id=conversation_id)
+        except TypeError:
+            add_history(command, reply)
 
 
 def _consume_chat_response(response, stream_callback=None) -> str:
@@ -53,6 +78,63 @@ class ChatAgent:
             stream_callback = request.context.get("stream_callback")
             if not callable(stream_callback):
                 stream_callback = None
+
+            content_type = request.context.get("content_type") or getattr(request, "input_data", {}).get("content_type")
+            if content_type:
+                topic = request.context.get("topic") or getattr(request, "input_data", {}).get("topic") or request.command
+                length_constraints = request.context.get("length_constraints") or getattr(request, "input_data", {}).get("length_constraints") or {}
+                target_lines = length_constraints.get("lines") or length_constraints.get("paragraphs")
+                if not target_lines:
+                    # Check if requested in command
+                    line_m = re.search(r"\b(?:of\s+)?(\d+)\s+(?:lines?|paragraphs?)\b", str(topic), re.I)
+                    if line_m:
+                        target_lines = int(line_m.group(1))
+
+                line_req = f" Write exactly {target_lines} distinct, substantive, non-empty paragraphs." if target_lines else ""
+                prompt_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are an expert author, historian, and essayist. "
+                            f"Write a comprehensive, eloquent, and detailed {content_type} on the requested topic.{line_req} "
+                            f"Write in full continuous paragraphs without filler, bullet lists, meta-commentary, or chat conversational remarks. "
+                            f"Output only the complete text of the {content_type}."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Write a comprehensive {content_type} on: {topic}.{line_req}",
+                    },
+                ]
+                try:
+                    predict_tokens = max(1500, int(target_lines or 0) * 35) if target_lines else 1500
+                    response = self.agent.chat(
+                        model=str(getattr(self.agent, "MODEL", "qwen3:8b")),
+                        messages=prompt_messages,
+                        think=False,
+                        keep_alive=-1,
+                        stream=bool(stream_callback),
+                        options={
+                            "num_predict": min(4096, predict_tokens),
+                            "num_ctx": int(getattr(self.agent, "QWEN_CONTEXT", 2048)),
+                            "temperature": 0.7,
+                        },
+                    )
+                    reply = _consume_chat_response(response, stream_callback)
+                    if not reply:
+                        raise RuntimeError(f"Could not generate {content_type}.")
+                except Exception:
+                    from .computer_agent import _synthesize_fallback_essay
+                    reply = _synthesize_fallback_essay(f"{content_type} on {topic}", target_lines=target_lines)
+
+                result.status = "completed"
+                result.message = str(reply).strip()
+                result.data = {"reply": result.message, "content_type": content_type, "topic": topic}
+                _record_chat_history(self.agent, request.command, result.message, request.conversation_id)
+                import desktop_memory
+                desktop_memory.save_last_assistant_output(result.message, conversation_id=request.conversation_id)
+                return result.finish()
+
             if request.context.get("needs_clarification"):
                 topic = str(request.context.get("clarification_topic") or "").strip()[:300]
                 try:
@@ -93,11 +175,9 @@ class ChatAgent:
                 result.status = "completed"
                 result.message = reply
                 result.data = {"reply": reply, "clarification": True}
-                add_history = getattr(self.agent, "add_history", None)
-                if callable(add_history):
-                    add_history(request.command, reply)
-                print("\n💬 NOVA")
-                print(reply)
+                _record_chat_history(self.agent, request.command, reply, request.conversation_id)
+                _safe_print("\n💬 NOVA")
+                _safe_print(reply)
                 print()
             elif previous_results:
                 # A Chat step after Browser/Research receives their structured outputs.
@@ -159,21 +239,17 @@ class ChatAgent:
                 reply = _consume_chat_response(response, stream_callback)
                 if not reply:
                     raise RuntimeError("The final synthesis step returned an empty response.")
-                add_history = getattr(self.agent, "add_history", None)
-                if callable(add_history):
-                    add_history(original_command, reply)
-                print("\n💬 NOVA")
-                print(reply)
+                _record_chat_history(self.agent, original_command, reply, request.conversation_id)
+                _safe_print("\n💬 NOVA")
+                _safe_print(reply)
                 print()
             elif precomputed:
                 # Qwen already classified and answered this chat request in the
                 # same inference call. Do not invoke the model a second time.
                 reply = precomputed
-                add_history = getattr(self.agent, "add_history", None)
-                if callable(add_history):
-                    add_history(request.command, reply)
-                print("\n💬 NOVA")
-                print(reply)
+                _record_chat_history(self.agent, request.command, reply, request.conversation_id)
+                _safe_print("\n💬 NOVA")
+                _safe_print(reply)
                 print()
             elif request.context.get("planner_error"):
                 # Avoid immediately repeating a failed Ollama call after planner
@@ -187,13 +263,21 @@ class ChatAgent:
                 )
             else:
                 if stream_callback:
-                    handled, reply = self.agent.handle_conversation(
-                        request.command, stream_callback=stream_callback
-                    )
+                    try:
+                        handled, reply = self.agent.handle_conversation(
+                            request.command, stream_callback=stream_callback, chat_id=request.conversation_id
+                        )
+                    except TypeError:
+                        handled, reply = self.agent.handle_conversation(
+                            request.command, stream_callback=stream_callback
+                        )
                 else:
-                    # Keep compatibility with existing NOVA adapters and tests
-                    # that still expose the original one-argument interface.
-                    handled, reply = self.agent.handle_conversation(request.command)
+                    try:
+                        handled, reply = self.agent.handle_conversation(
+                            request.command, chat_id=request.conversation_id
+                        )
+                    except TypeError:
+                        handled, reply = self.agent.handle_conversation(request.command)
                 if not handled:
                     result.errors.append("Chat Agent declined a command that requires an action specialist.")
                     return result.finish()

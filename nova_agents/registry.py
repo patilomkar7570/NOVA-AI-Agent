@@ -41,6 +41,35 @@ _AGENT_PROFILES: tuple[dict[str, Any], ...] = (
         "enabled": True,
         "capabilities": ["web_search", "source_inspection", "evidence_synthesis"],
     },
+    {
+        "id": "computer",
+        "name": "Computer Agent",
+        "description": "Observes and interacts with the Windows desktop, applications, and semantic controls.",
+        "category": "desktop-automation",
+        "execution": "windows-native",
+        "enabled": True,
+        "capabilities": [
+            "desktop_observation",
+            "window_management",
+            "desktop_interaction",
+            "application_launch",
+        ],
+    },
+    {
+        "id": "coder",
+        "name": "Coder Agent",
+        "description": "Specialized developer agent for AST-validated code synthesis, multi-file diff patches, and tests.",
+        "category": "coding",
+        "execution": "local-model-and-ast",
+        "enabled": True,
+        "capabilities": [
+            "code_generation",
+            "ast_validation",
+            "diff_patching",
+            "workspace_inspection",
+            "test_execution",
+        ],
+    },
 )
 
 

@@ -74,14 +74,14 @@ class ApprovalApiTests(unittest.TestCase):
     def test_capabilities_endpoint_snapshot_reports_only_active_agents(self):
         payload = api.capabilities_payload()
         self.assertTrue(payload["ok"])
-        self.assertEqual(payload["application"]["version"], "0.5.0-alpha")
+        self.assertEqual(payload["application"]["version"], "0.6.0-beta")
         self.assertEqual(
             {profile["id"] for profile in payload["agents"]},
-            {"reaction", "chat", "browser", "research"},
+            {"reaction", "chat", "browser", "research", "computer", "coder"},
         )
-        self.assertFalse(payload["features"]["windows_desktop_control"])
-        self.assertFalse(payload["features"]["file_operations"])
-        self.assertFalse(payload["features"]["coding_operations"])
+        self.assertTrue(payload["features"]["windows_desktop_control"])
+        self.assertTrue(payload["features"]["file_operations"])
+        self.assertTrue(payload["features"]["coding_operations"])
 
     def test_decline_and_expiry_are_fail_closed(self):
         task_id = "approval-decline-task"
@@ -138,6 +138,54 @@ class ApprovalApiTests(unittest.TestCase):
         self.assertLess(first["id"], second["id"])
         self.assertLess(second["id"], 2 ** 53)
         self.assertEqual(first["task_id"], "task-a")
+
+    def test_browser_viewport_endpoint_integration(self):
+        # When browser is not active, returns 404 cleanly
+        handler = api.Handler.__new__(api.Handler)
+        handler.path = "/api/browser/viewport"
+        sent_json = {}
+        def mock_send(status, payload):
+            sent_json["status"] = status
+            sent_json["payload"] = payload
+        handler._send_json = mock_send
+        handler.do_GET()
+        self.assertEqual(sent_json.get("status"), 404)
+        self.assertFalse(sent_json.get("payload", {}).get("ok"))
+
+    def test_terminal_and_glance_api_integration(self):
+        handler = api.Handler.__new__(api.Handler)
+        sent_json = {}
+        def mock_send(status, payload):
+            sent_json["status"] = status
+            sent_json["payload"] = payload
+        handler._send_json = mock_send
+
+        # Test terminal sessions list
+        handler.path = "/api/terminal/sessions"
+        handler.do_GET()
+        self.assertEqual(sent_json.get("status"), 200)
+        self.assertTrue(sent_json.get("payload", {}).get("ok"))
+
+        # Test captcha state endpoint
+        handler.path = "/api/browser/captcha"
+        handler.do_GET()
+        self.assertEqual(sent_json.get("status"), 200)
+        self.assertIn("captcha", sent_json.get("payload", {}))
+
+        # Test 2fa extract
+        handler.path = "/api/2fa/extract"
+        handler._read_json = lambda: {"text": "Your login code is 882194"}
+        handler.do_POST()
+        self.assertEqual(sent_json.get("status"), 200)
+        self.assertEqual(sent_json.get("payload", {}).get("result", {}).get("code"), "882194")
+
+        # Test glance capture
+        handler.path = "/api/glance/capture"
+        handler.headers = {"Content-Length": "0"}
+        handler._read_json = lambda: {}
+        handler.do_POST()
+        self.assertEqual(sent_json.get("status"), 200)
+        self.assertTrue(sent_json.get("payload", {}).get("ok"))
 
 
 

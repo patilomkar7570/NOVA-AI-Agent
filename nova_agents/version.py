@@ -1,9 +1,9 @@
-"""Application version metadata for the NOVA Alpha 0.5 development line."""
+"""Application version metadata for the NOVA Beta 0.6 development line."""
 
 APP_NAME = "NOVA"
-APP_VERSION = "0.5.0-alpha"
-RELEASE_CHANNEL = "development"
-BUILD_LABEL = "Alpha 0.5 · Orchestrator Consolidation"
+APP_VERSION = "0.6.0-beta"
+RELEASE_CHANNEL = "beta"
+BUILD_LABEL = "Beta 0.6 · Desktop Control & Multi-Agent Architecture"
 
 
 def version_info() -> dict[str, str]:

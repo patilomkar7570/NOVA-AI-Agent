@@ -1,0 +1,135 @@
+/* ================================================= */
+/* NOVA PREMIUM - GENIE EFFECT TRANSITIONS & SURFACES */
+/* ================================================= */
+
+.genie-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.genie-portal.variant-popover {
+  position: absolute;
+  inset: auto;
+  z-index: 1000;
+  display: block;
+}
+
+.genie-portal.variant-fullscreen {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  z-index: 99999 !important;
+}
+
+.genie-portal.variant-fullscreen .genie-surface-wrapper {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  z-index: 2 !important;
+}
+
+.genie-portal.variant-fullscreen .nova-voice-room {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+}
+
+/* Backdrop */
+.genie-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 16, 0.45);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.genie-portal.dark .genie-backdrop {
+  background: rgba(4, 6, 10, 0.65);
+}
+
+.genie-backdrop.visible {
+  opacity: 1;
+}
+
+/* SVG Clip Container */
+.genie-svg-defs {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  visibility: hidden;
+  z-index: -1;
+}
+
+/* Morphing Container */
+.genie-surface-wrapper {
+  position: relative;
+  z-index: 2;
+  will-change: transform, opacity, clip-path;
+  transition: none; /* Controlled via rAF */
+}
+
+/* Glass Surface Styling (Apple macOS Inspired) */
+.genie-glass-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 24px 64px -12px rgba(0, 0, 0, 0.18),
+    0 8px 24px -6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.dark-mode .genie-glass-card,
+[data-theme="dark"] .genie-glass-card {
+  background: rgba(20, 22, 28, 0.82);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 28px 72px -16px rgba(0, 0, 0, 0.65),
+    0 10px 30px -8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0.5px 0 rgba(255, 255, 255, 0.16);
+}
+
+/* Reduced Motion Fallback */
+@media (prefers-reduced-motion: reduce) {
+  .genie-surface-wrapper {
+    clip-path: none !important;
+    transition: opacity 0.2s ease, transform 0.2s ease !important;
+  }
+}

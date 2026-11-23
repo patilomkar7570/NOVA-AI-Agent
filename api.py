@@ -42,6 +42,10 @@ else:
 import agent
 from nova_agents import Orchestrator, agent_catalog
 from nova_agents.version import APP_NAME, APP_VERSION, BUILD_LABEL, RELEASE_CHANNEL
+from nova_terminal import terminal_manager
+from nova_vision_glance import screen_glance_engine
+from nova_2fa import two_factor_engine
+import nova_models
 
 HOST = "127.0.0.1"
 PORT = 8000
@@ -330,6 +334,7 @@ _task_records: dict[str, dict[str, Any]] = {}
 _task_records_lock = threading.Lock()
 _task_submission_lock = threading.Lock()
 _MAX_TASK_RECORDS = 100
+_default_agent_mode: str = "auto"
 
 # A single persistent worker handles one task at a time, so one pending
 # confirmation at a time is sufficient. Decisions are correlated by both task
@@ -634,6 +639,10 @@ def worker_loop() -> None:
 
             command = str(task_item.get("command", "")).strip()
             chat_id = str(task_item.get("chat_id", "")).strip() or None
+            try:
+                agent.set_current_chat_id(chat_id)
+            except Exception:
+                pass
             task_id = str(task_item.get("task_id", "")).strip()
             cancel_event = task_item.get("cancel_event")
             if not isinstance(cancel_event, threading.Event):
@@ -678,6 +687,7 @@ def worker_loop() -> None:
                         cancellation_event=cancel_event,
                         response_callback=forward_voice_delta if voice_stream else None,
                         language=str(task_item.get("language") or "en"),
+                        agent_mode=str(task_item.get("agent_mode") or task_item.get("mode") or "auto"),
                     )
 
                 stream.flush()
@@ -796,10 +806,13 @@ def ensure_worker() -> bool:
     return task_thread is not None and task_thread.is_alive()
 
 
-def enqueue_task(command: str, chat_id: str, voice_stream: bool = False, language: str = "en") -> tuple[int, dict[str, Any]]:
+def enqueue_task(command: str, chat_id: str, voice_stream: bool = False, language: str = "en", mode: str = "auto") -> tuple[int, dict[str, Any]]:
     """Atomically accept one task so concurrent HTTP requests cannot overfill the worker."""
     from nova_agents.language import normalize_language
     language = normalize_language(language, default="en")
+    resolved_mode = str(mode or _default_agent_mode or "auto").strip().lower()
+    if resolved_mode == "computer":
+        resolved_mode = "desktop"
     with _task_submission_lock:
         with _task_records_lock:
             active_jobs = running or any(
@@ -835,6 +848,7 @@ def enqueue_task(command: str, chat_id: str, voice_stream: bool = False, languag
             "task_id": task_id, "command": command, "chat_id": chat_id,
             "cancel_event": cancel_event,
             "voice_stream": bool(voice_stream), "language": language,
+            "agent_mode": resolved_mode,
         })
         return 202, {"ok": True, "task_id": task_id, "status": "queued"}
 
@@ -870,9 +884,9 @@ def capabilities_payload() -> dict[str, Any]:
             "voice_response_streaming": True,
             "progressive_voice_tts": True,
             "voice_interruption_resume": True,
-            "file_operations": False,
-            "coding_operations": False,
-            "windows_desktop_control": False,
+            "file_operations": True,
+            "coding_operations": True,
+            "windows_desktop_control": True,
         },
         "runtime": {
             "model": getattr(agent, "MODEL", "qwen3:8b"),
@@ -1447,10 +1461,26 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    MAX_JSON_PAYLOAD = 25 * 1024 * 1024  # 25 MB
+
     def _read_json(self) -> dict[str, Any]:
-        length = int(self.headers.get("Content-Length", "0"))
+        raw_len = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_len)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid Content-Length header")
+        if length < 0:
+            raise ValueError("Negative Content-Length header")
+        if length > self.MAX_JSON_PAYLOAD:
+            raise ValueError("Payload size exceeds maximum allowed limit (25MB)")
         raw = self.rfile.read(length) if length else b"{}"
-        return json.loads(raw.decode("utf-8"))
+        try:
+            parsed = json.loads(raw.decode("utf-8", errors="replace"))
+        except (json.JSONDecodeError, ValueError) as err:
+            raise ValueError(f"Malformed JSON body: {err}") from err
+        if not isinstance(parsed, dict):
+            raise ValueError("JSON body must be an object")
+        return parsed
 
     def do_OPTIONS(self) -> None:
         self._send_json(204, {})
@@ -1468,8 +1498,72 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(status, payload)
             return
 
+        if route_path == "/api/browser/viewport":
+            frame = getattr(agent, "capture_browser_viewport_jpeg", lambda: None)()
+            if frame:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(frame)))
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(frame)
+            else:
+                self._send_json(404, {"ok": False, "error": "Browser viewport is not currently available"})
+            return
+
+        if route_path == "/api/terminal/sessions":
+            self._send_json(200, {"ok": True, "sessions": terminal_manager.list_sessions()})
+            return
+
+        if route_path == "/api/terminal/output":
+            query = parse_qs(urlsplit(self.path).query)
+            session_id = str((query.get("session_id") or [""])[0]).strip()
+            since = int((query.get("since") or ["0"])[0]) if (query.get("since") or ["0"])[0].isdigit() else 0
+            session = terminal_manager.get_session(session_id)
+            if not session:
+                self._send_json(404, {"ok": False, "error": "Terminal session not found"})
+                return
+            self._send_json(200, session.get_output(since))
+            return
+
+        if route_path == "/api/browser/captcha":
+            captcha_fn = getattr(agent, "detect_captcha_challenge", lambda: {"detected": False, "type": None})
+            self._send_json(200, {"ok": True, "captcha": captcha_fn()})
+            return
+
+        if route_path == "/api/sandbox":
+            self._send_json(200, {
+                "ok": True,
+                "sandbox_mode": os.environ.get("NOVA_SANDBOX_MODE") == "1",
+            })
+            return
+
         if route_path == "/api/capabilities":
             self._send_json(200, capabilities_payload())
+            return
+
+        if route_path == "/api/settings/models":
+            try:
+                settings = nova_models.get_model_settings()
+                masked_key = nova_models.mask_api_key(settings.get("gemini_api_key", ""))
+                self._send_json(200, {
+                    "ok": True,
+                    "settings": settings,
+                    "masked_api_key": masked_key,
+                    "available_gemini_models": nova_models.AVAILABLE_GEMINI_MODELS,
+                    "available_local_models": nova_models.AVAILABLE_LOCAL_MODELS,
+                })
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
+            return
+
+        if route_path == "/api/mode":
+            self._send_json(200, {
+                "ok": True,
+                "mode": _default_agent_mode,
+                "available_modes": ["auto", "browser", "desktop"],
+            })
             return
 
         if route_path.startswith("/api/status"):
@@ -1483,6 +1577,8 @@ class Handler(BaseHTTPRequestHandler):
                     "model": getattr(agent, "MODEL", "qwen3:8b"),
                     "activeSite": getattr(agent, "ACTIVE_SITE", ""),
                     "activeAgent": active_agent,
+                    "agent_mode": _default_agent_mode,
+                    "available_modes": ["auto", "browser", "desktop"],
                     "architecture": "router-planner-specialists",
                     "application": {
                         "name": APP_NAME,
@@ -1578,6 +1674,151 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         route_path = self.path.split("?", 1)[0]
+
+        if route_path == "/api/mode":
+            global _default_agent_mode
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            target_mode = str(body.get("mode") or body.get("agent_mode") or "auto").strip().lower()
+            if target_mode in {"auto", "browser", "desktop", "computer"}:
+                _default_agent_mode = "desktop" if target_mode == "computer" else target_mode
+                self._send_json(200, {
+                    "ok": True,
+                    "mode": _default_agent_mode,
+                    "message": f"Agent mode set to {_default_agent_mode}",
+                })
+            else:
+                self._send_json(400, {
+                    "ok": False,
+                    "error": f"Invalid mode '{target_mode}'. Choose from: auto, browser, desktop",
+                })
+            return
+
+        if route_path == "/api/sandbox":
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            enabled = bool(body.get("enabled", True))
+            os.environ["NOVA_SANDBOX_MODE"] = "1" if enabled else "0"
+            self._send_json(200, {"ok": True, "sandbox_mode": enabled})
+            return
+
+        if route_path == "/api/settings/models":
+            try:
+                body = self._read_json()
+                updated = nova_models.save_model_settings(body)
+                self._send_json(200, {
+                    "ok": True,
+                    "settings": updated,
+                    "masked_api_key": nova_models.mask_api_key(updated.get("gemini_api_key", "")),
+                    "message": "Model settings saved successfully.",
+                })
+            except Exception as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
+            return
+
+        if route_path == "/api/settings/models/test-gemini":
+            try:
+                body = self._read_json()
+                api_key = str(body.get("api_key") or "").strip()
+                if not api_key:
+                    api_key = nova_models.get_model_settings().get("gemini_api_key", "").strip()
+                model = str(body.get("model") or "gemini-2.5-flash").strip()
+                result = nova_models.test_gemini_api_key(api_key, model=model)
+                self._send_json(200 if result.get("ok") else 400, result)
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
+            return
+
+        if route_path == "/api/terminal/session":
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            cwd = body.get("cwd")
+            shell = str(body.get("shell") or "powershell.exe")
+            session = terminal_manager.create_session(cwd=cwd, shell=shell)
+            self._send_json(200, {
+                "ok": True,
+                "session_id": session.session_id,
+                "shell": session.shell,
+                "cwd": session.cwd,
+            })
+            return
+
+        if route_path == "/api/terminal/input":
+            try:
+                body = self._read_json()
+            except Exception:
+                self._send_json(400, {"ok": False, "error": "Invalid JSON body"})
+                return
+            session_id = str(body.get("session_id") or "").strip()
+            text = str(body.get("input") or "")
+            session = terminal_manager.get_session(session_id)
+            if not session:
+                self._send_json(404, {"ok": False, "error": "Terminal session not found"})
+                return
+            success = session.write_input(text)
+            self._send_json(200, {"ok": success})
+            return
+
+        if route_path == "/api/terminal/kill":
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            session_id = str(body.get("session_id") or "").strip()
+            killed = terminal_manager.kill_session(session_id)
+            self._send_json(200, {"ok": killed})
+            return
+
+        if route_path == "/api/glance/capture":
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            custom_text = body.get("text") if isinstance(body, dict) else None
+            result = screen_glance_engine.analyze_glance(custom_text)
+            self._send_json(200, result)
+            return
+
+        if route_path == "/api/glance/apply-fix":
+            try:
+                body = self._read_json()
+            except Exception:
+                self._send_json(400, {"ok": False, "error": "Invalid JSON body"})
+                return
+            file_path = str(body.get("file_path") or "")
+            old_code = str(body.get("old_snippet") or "")
+            new_code = str(body.get("new_snippet") or "")
+            result = screen_glance_engine.apply_surgical_fix(file_path, old_code, new_code)
+            self._send_json(200 if result.get("ok") else 400, result)
+            return
+
+        if route_path == "/api/2fa/extract":
+            try:
+                body = self._read_json()
+            except Exception:
+                body = {}
+            text = str(body.get("text") or "")
+            result = two_factor_engine.extract_code(text)
+            self._send_json(200, {"ok": True, "result": result})
+            return
+
+        if route_path == "/api/2fa/totp":
+            try:
+                body = self._read_json()
+            except Exception:
+                self._send_json(400, {"ok": False, "error": "Invalid JSON body"})
+                return
+            secret = str(body.get("secret") or "")
+            result = two_factor_engine.generate_totp(secret)
+            self._send_json(200 if result.get("ok") else 400, result)
+            return
+
         if route_path == "/api/voice/whisper/preload":
             status, payload = preload_voicebox_whisper()
             self._send_json(status, payload)
@@ -1676,6 +1917,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
 
                 self._send_json(201, {"ok": True, "chat": chat})
+            except ValueError as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
                 self._send_json(500, {"ok": False, "error": str(exc)})
             return
@@ -1724,6 +1967,8 @@ class Handler(BaseHTTPRequestHandler):
                         return
 
                 self._send_json(200, {"ok": True, "chat": target})
+            except ValueError as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
                 self._send_json(500, {"ok": False, "error": str(exc)})
             return
@@ -1755,7 +2000,100 @@ class Handler(BaseHTTPRequestHandler):
                         )
                         return
 
+                # Purge all conversational memory for this chat completely
+                try:
+                    agent.delete_chat_history(chat_id)
+                except Exception:
+                    pass
+                try:
+                    import desktop_memory
+                    desktop_memory.delete_conversation_memory(chat_id)
+                except Exception:
+                    pass
+                try:
+                    _orchestrator_memory.delete_conversation_memory(chat_id)
+                except Exception:
+                    pass
+
                 self._send_json(200, {"ok": True, "chats": new_chats})
+            except ValueError as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
+            return
+
+        if route_path == "/api/files/extract":
+            try:
+                import base64
+                import io
+                import os
+                body = self._read_json()
+                raw_filename = str(body.get("filename") or "uploaded_file").strip()
+                filename = os.path.basename(raw_filename) or "uploaded_file"
+                b64_content = str(body.get("content_base64") or "").strip()
+                
+                if not b64_content:
+                    self._send_json(400, {"ok": False, "error": "No file content provided."})
+                    return
+
+                try:
+                    raw_bytes = base64.b64decode(b64_content, validate=True)
+                except Exception as b64_err:
+                    self._send_json(400, {"ok": False, "error": f"Invalid base64 content: {b64_err}"})
+                    return
+                
+                extracted_text = ""
+                num_pages = 0
+                
+                is_image = any(filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"])
+                is_pdf = filename.lower().endswith(".pdf") or raw_bytes.startswith(b"%PDF")
+
+                if is_pdf:
+                    try:
+                        import pypdf
+                        reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
+                        num_pages = len(reader.pages)
+                        extracted_text = "\n\n".join(page.extract_text() or "" for page in reader.pages)
+                    except Exception as pdf_err:
+                        self._send_json(500, {"ok": False, "error": f"Could not read PDF: {pdf_err}"})
+                        return
+                elif is_image:
+                    try:
+                        from PIL import Image
+                        Image.MAX_IMAGE_PIXELS = 50_000_000
+                        img = Image.open(io.BytesIO(raw_bytes))
+                        width, height = img.size
+                        img_format = img.format or "IMAGE"
+                        extracted_text = f"[Attached {img_format} Image: {filename} ({width}x{height} pixels)]"
+                        self._send_json(200, {
+                            "ok": True,
+                            "filename": filename,
+                            "is_image": True,
+                            "width": width,
+                            "height": height,
+                            "format": img_format,
+                            "text": extracted_text,
+                            "char_count": len(extracted_text),
+                        })
+                        return
+                    except Exception as img_err:
+                        extracted_text = f"[Attached Image: {filename}]"
+                else:
+                    try:
+                        extracted_text = raw_bytes.decode("utf-8", errors="replace")
+                    except Exception as dec_err:
+                        self._send_json(500, {"ok": False, "error": f"Could not decode text: {dec_err}"})
+                        return
+                
+                self._send_json(200, {
+                    "ok": True,
+                    "filename": filename,
+                    "text": extracted_text[:50000],  # Bounded to 50k chars
+                    "num_pages": num_pages,
+                    "char_count": len(extracted_text),
+                })
+            except ValueError as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
                 self._send_json(500, {"ok": False, "error": str(exc)})
             return
@@ -1785,11 +2123,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(404, {"ok": False, "error": "Conversation not found. Start a new chat and retry."})
                 return
 
+            mode = str(body.get("mode") or body.get("agent_mode") or _default_agent_mode or "auto").strip().lower()
+            if mode == "computer":
+                mode = "desktop"
             status, payload = enqueue_task(
                 command,
                 chat_id,
                 voice_stream=bool(body.get("voice_stream", False)),
                 language=str(body.get("language") or "en"),
+                mode=mode,
             )
             self._send_json(status, payload)
             return
@@ -1943,6 +2285,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 deleted = _orchestrator_memory.delete_conversation_memory(chat_id)
+                try:
+                    agent.delete_chat_history(chat_id)
+                except Exception:
+                    pass
+                try:
+                    import desktop_memory
+                    desktop_memory.delete_conversation_memory(chat_id)
+                except Exception:
+                    pass
                 self._send_json(200, {"ok": True, "deleted_turns": deleted})
             except Exception as exc:
                 self._send_json(500, {"ok": False, "error": str(exc)})
@@ -1953,8 +2304,20 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[NOVA API] {format % args}")
 
 
+def ensure_runtime_environment() -> None:
+    """Ensure all required runtime directories and initial configurations exist on startup."""
+    for folder in ("screenshots", "captures", "recordings", "runtime"):
+        os.makedirs(folder, exist_ok=True)
+    try:
+        import nova_models
+        nova_models.get_model_settings()
+    except Exception as exc:
+        print(f"[NOVA INIT] Runtime settings initialization: {exc}")
+
+
 def main() -> None:
     global _worker_shutdown
+    ensure_runtime_environment()
 
     print("=" * 60)
     print("NOVA BACKEND")

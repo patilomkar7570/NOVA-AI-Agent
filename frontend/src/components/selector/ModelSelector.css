@@ -1,0 +1,258 @@
+/* NOVA Model & Agent Mode Selector Dropdown
+   Placed on the right side of the prompt bar (.task-box)
+*/
+
+.model-selector-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: 0 4px 0 0;
+  z-index: 40;
+}
+
+/* Standalone wrapper when used in Settings */
+.settings-mode-control .model-selector-wrapper {
+  margin: 0;
+}
+
+/* Trigger pill button inside prompt bar */
+.model-selector-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 13px;
+  background: rgba(35, 45, 42, 0.06);
+  border: 1px solid rgba(35, 45, 42, 0.12);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #2b3632;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.app.dark-mode .model-selector-trigger {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e5ece7;
+}
+
+.model-selector-trigger:hover,
+.model-selector-trigger.is-open {
+  background: rgba(35, 45, 42, 0.1);
+  border-color: var(--nova-accent-primary, #58776c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(35, 48, 44, 0.08);
+}
+
+.app.dark-mode .model-selector-trigger:hover,
+.app.dark-mode .model-selector-trigger.is-open {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--nova-accent-light, #a4b9ae);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.model-selector-trigger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nova-accent-primary, #58776c);
+}
+
+.app.dark-mode .model-selector-trigger-icon {
+  color: var(--nova-accent-highlight, #91aea1);
+}
+
+.model-selector-trigger-label {
+  letter-spacing: 0.01em;
+}
+
+.model-selector-trigger-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  font-size: 11px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.model-selector-trigger-arrow.is-rotated {
+  transform: rotate(180deg);
+}
+
+/* Floating Dropdown Menu */
+.model-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  min-width: 250px;
+  max-width: 290px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(35, 45, 42, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 16px 40px rgba(35, 48, 44, 0.14), 0 2px 6px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 120;
+  animation: modelDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Drop up variant for Chat view bottom placement */
+.model-selector-dropdown.drop-up,
+.chat-workspace .model-selector-dropdown {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+@keyframes modelDropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.model-selector-dropdown.drop-up {
+  animation: modelDropdownFadeUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modelDropdownFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.app.dark-mode .model-selector-dropdown {
+  background: rgba(26, 32, 30, 0.96);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.model-selector-dropdown-header {
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a8882;
+  padding: 6px 10px 4px;
+}
+
+.app.dark-mode .model-selector-dropdown-header {
+  color: #8c9b94;
+}
+
+.model-selector-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.model-selector-dropdown-item:hover {
+  background: rgba(35, 48, 44, 0.06);
+}
+
+.app.dark-mode .model-selector-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.model-selector-dropdown-item.is-active {
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 14%, transparent);
+}
+
+.app.dark-mode .model-selector-dropdown-item.is-active {
+  background: color-mix(in srgb, var(--nova-accent-primary, #58776c) 22%, rgba(255, 255, 255, 0.06));
+}
+
+.model-selector-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(35, 48, 44, 0.06);
+  color: #404d48;
+  flex-shrink: 0;
+}
+
+.app.dark-mode .model-selector-item-icon {
+  background: rgba(255, 255, 255, 0.08);
+  color: #d1dcda;
+}
+
+.model-selector-dropdown-item.is-active .model-selector-item-icon {
+  background: var(--nova-accent-primary, #58776c);
+  color: #ffffff;
+}
+
+.model-selector-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.model-selector-item-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: #1e2624;
+}
+
+.app.dark-mode .model-selector-item-title {
+  color: #edf2ee;
+}
+
+.model-selector-item-desc {
+  font-size: 11px;
+  color: #6d7a74;
+  line-height: 1.3;
+}
+
+.app.dark-mode .model-selector-item-desc {
+  color: #92a099;
+}
+
+.model-selector-item-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nova-accent-primary, #58776c);
+  flex-shrink: 0;
+}
+
+.app.dark-mode .model-selector-item-check {
+  color: var(--nova-accent-light, #a4b9ae);
+}

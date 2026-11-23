@@ -95,15 +95,15 @@ async function requestMicrophoneStream() {
     }
     const name = error?.name || ''
     if (name === 'NotAllowedError' || name === 'SecurityError') {
-      throw new Error('Microphone permission is blocked. Allow microphone access for NOVA in your browser and Windows privacy settings.')
+      throw new Error('Microphone permission is blocked. Allow microphone access for NOVA in your browser and Windows privacy settings.', { cause: error })
     }
     if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-      throw new Error('No microphone was found. Connect or enable a microphone, then retry.')
+      throw new Error('No microphone was found. Connect or enable a microphone, then retry.', { cause: error })
     }
     if (name === 'NotReadableError' || name === 'AbortError') {
-      throw new Error('Windows could not open the microphone. Check whether another app is holding the device, then retry.')
+      throw new Error('Windows could not open the microphone. Check whether another app is holding the device, then retry.', { cause: error })
     }
-    throw new Error(`Could not open the microphone${error?.message ? `: ${error.message}` : '.'}`)
+    throw new Error(`Could not open the microphone${error?.message ? `: ${error.message}` : '.'}`, { cause: error })
   }
 }
 

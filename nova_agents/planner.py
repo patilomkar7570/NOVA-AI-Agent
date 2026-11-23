@@ -8,12 +8,54 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from .contracts import ExecutionPlan, PlanStep, TaskRequest
+from .contracts import ExecutionPlan, PlanStep, StepCritique, TaskRequest
 from .reactions import match_reaction
 from .language import detect_language_from_text, language_instruction, normalize_language
 from .registry import agent_capabilities
+from .instruction_parser import parse_instruction, ParsedInstruction
+import desktop_memory
 
-_ALLOWED_AGENTS = {"chat", "browser", "research"}
+_ALLOWED_AGENTS = {"chat", "browser", "research", "computer", "coder"}
+_BROWSE_RESEARCH_CHAT_PATTERN = re.compile(
+    r"^(?:(?:hey|hi|hello)\s+nova[,!\s]+)?(?:please\s+)?"
+    r"open\s+([a-zA-Z0-9_\-\.]+)\s+(?:and\s+)?(?:search|find|look up)\s+(?:for\s+)?(.*?)(?:\s+(?:and\s+)?(tell me|summarize|explain|what is|when was|who is|give me|find out)\s*(.*))?$",
+    re.IGNORECASE,
+)
+_DESKTOP_FALLBACK = re.compile(
+    r"\b(?:launch|open|start|run|close|quit|switch to|focus)\s+(?:notepad|calculator|calc|explorer|desktop|window|notes?|discord|whatsapp|spotify|slack|telegram|word|winword|excel|powerpoint|ppt|powerpnt|paint|mspaint|settings|terminal|vlc|voicebox|blender|photoshop|teams|zoom|onenote|wordpad|obsidian|obs|steam|firefox)\b|"
+    r"\b(?:launch|open|start|run)\s+[a-zA-Z0-9_\- ]+\s+(?:and|,|then)\s+(?:write|type|paste|enter|put|send|select|click)\b|"
+    r"\b(?:launch|open|start|run)\s+(?:the\s+)?(?:app|application|program)\s+[a-zA-Z0-9_\- ]+\b|"
+    r"\b(?:launch|open|start|run)\s+[a-zA-Z0-9_\- ]+\s+(?:app|application|program)\b|"
+    r"\b(?:create|make|take|write)\s+(?:a\s+)?(?:new\s+)?notes?\b|"
+    r"^(?:yes|yeah|yep|ok|okay|sure|please|then|now)?\s*(?:open|show|view|launch|run|start|close|quit)\s+(?:it|that|the\s+app|the\s+program|the\s+note|the\s+file)\b|"
+    r"\b(?:it(?:'?s|\s+is)\s+an?\s+app|no\s+its?\s+an?\s+app|[a-zA-Z0-9_\- ]+\s+is\s+an?\s+app)\b|"
+    r"^(?:where\s+is\s+it|where\s+did\s+you\s+create\s+it|where\s+is\s+the\s+note)$|"
+    r"^(?:now\s+|please\s+|then\s+)?(?:paste|type|write|put|enter)(?:\s+(?:it|that|this|the\s+summary|the\s+text|the\s+data))?(?:\s+(?:in|into|here|there|to|it)(?:\s+[a-zA-Z0-9_\- ]+?)?)?(?:\s+instead)?$|"
+    r"\b(?:type|write|paste|enter|send)\s+.*?\s+(?:in|into|to)\s+[a-zA-Z0-9_\- ]+\b|"
+    r"^(?:type|write|paste|enter)\s+[:\"']?.+[\"']?$|"
+    r"\b(?:mute|silence|unmute|volume\s+up|volume\s+down|turn\s+up\s+(?:the\s+)?volume|turn\s+down\s+(?:the\s+)?volume|increase\s+(?:the\s+)?volume|decrease\s+(?:the\s+)?volume|raise\s+(?:the\s+)?volume|lower\s+(?:the\s+)?volume)\b|"
+    r"\b(?:play\s+music|pause\s+music|resume\s+music|next\s+track|next\s+song|previous\s+track|previous\s+song|prev\s+track|prev\s+song|stop\s+music|toggle\s+playback)\b|"
+    r"\b(?:show\s+desktop|show\s+my\s+desktop|show\s+the\s+desktop|minimize\s+all\s+windows|minimize\s+all|lock\s+pc|lock\s+screen|lock\s+workstation|lock\s+my\s+screen|lock\s+my\s+pc)\b|"
+    r"\b(?:take\s+(?:a\s+)?screenshot|capture\s+(?:the\s+)?(?:screen|desktop)|screenshot\s+(?:screen|desktop)|what(?:'?s|\s+is)\s+on\s+my\s+screen)\b|"
+    r"\b(?:list|show|enumerate)\s+(?:open\s+)?(?:windows|desktop apps)\b",
+    re.IGNORECASE,
+)
+_SEARCH_AND_PASTE_PATTERN = re.compile(
+    r"^(?:(?:hey|hi|hello)\s+nova[,!\s]+)?(?:please\s+)?"
+    r"(?:open\s+[a-zA-Z0-9_\-\.]+\s+(?:and\s+)?)?"
+    r"(?:search|look\s*up|find)\s+(?:for\s+)?(.*?)\s+(?:and|,|then)\s+(?:paste|write|put|enter|insert)\s+(?:it\s+)?(?:in|into|to|on)\s+([a-zA-Z0-9_\- ]+?)(?:\s+instead)?$",
+    re.IGNORECASE,
+)
+_COMPOSE_AND_WRITE_PATTERN = re.compile(
+    r"^(?:(?:okay|ok|alright|so|now|please|then|can\s+you\s+|could\s+you\s+|hey\s+nova[,!\s]+)\s+)*"
+    r"(?:(?:open|launch|start|run)\s+(?:the\s+)?([a-zA-Z0-9_\-]+(?:\s+[a-zA-Z0-9_\-]+)?)(?:\s+(?:app|application|program))?\s+(?:and|,|then)\s+)?"
+    r"(?:write|draft|compose|create|put|type)\s+"
+    r"(?:an?\s+)?(essay|story|letter|report|poem|article|summary|paragraph|review|speech)\s*"
+    r"(?:on|about|regarding|for|to)?\s*"
+    r"(.+?)"
+    r"(?:\s+(?:in|into|inside)\s+(?:the\s+)?([a-zA-Z0-9_\-]+(?:\s+app|\s+application)?))?$",
+    re.IGNORECASE,
+)
 _RESEARCH_FALLBACK = re.compile(
     r"\b(research|investigate|fact[ -]?check|compare|comparison|"
     r"gather sources|credible sources|latest developments|in[- ]depth analysis|"
@@ -33,9 +75,196 @@ _EXPLICIT_ACTION_REQUEST = re.compile(
     r"(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:please\s+)?"
     r"(?:open|go to|visit|navigate to|search|find|look up|browse|click|press|"
     r"type|scroll|read|watch|play|download|refresh|go back|go forward|send|"
-    r"post|submit|purchase|buy|book|reserve|delete|remove|install|launch|start)\b",
+    r"post|submit|purchase|buy|book|reserve|delete|remove|install|launch|start|"
+    r"create|make|take|write|show|close|where)\b",
     re.IGNORECASE,
 )
+
+
+
+def _build_multi_agent_pipeline(request: TaskRequest, match: re.Match) -> ExecutionPlan:
+    site = (match.group(1) or "web").strip()
+    topic = (match.group(2) or request.command).strip()
+    action = (match.group(3) or "summarize").strip()
+    detail = (match.group(4) or "").strip()
+    clean_topic = re.sub(r"^(?:for|about)\s+", "", topic, flags=re.I).strip()
+    question = f"{action} {detail}".strip() if (action or detail) else f"summarize the findings on {clean_topic}"
+
+    return ExecutionPlan(
+        task_id=request.task_id,
+        steps=[
+            PlanStep(
+                agent="browser",
+                objective=f"open {site} and search {clean_topic}",
+                reason=f"Step 1: Open {site.title()} and navigate directly to {clean_topic}.",
+                expected_output="Live article page loaded with full content.",
+                required_capabilities=tuple(agent_capabilities("browser")),
+                risk_level="low",
+            ),
+            PlanStep(
+                agent="research",
+                objective=f"Extract key factual evidence, dates, entities, and sources for {clean_topic}",
+                reason="Step 2: Research specialist inspects and extracts structured factual evidence from the page.",
+                expected_output="Structured factual evidence, key dates, and verified sources.",
+                required_capabilities=tuple(agent_capabilities("research")),
+                risk_level="low",
+                dependencies=["browser"],
+            ),
+            PlanStep(
+                agent="chat",
+                objective=f"Answer the user's specific question: {question}",
+                reason="Step 3: Chat specialist synthesizes the research findings into a clear, direct answer.",
+                expected_output="Direct, accurate answer with verified dates and facts.",
+                required_capabilities=tuple(agent_capabilities("chat")),
+                risk_level="low",
+                dependencies=["research"],
+            ),
+        ],
+        explanation=f"Multi-agent research pipeline: Browser opens {site.title()} -> Research extracts facts -> Chat synthesizes the answer.",
+        source="multi-agent-pipeline",
+        confidence=95.0,
+    )
+
+
+def _build_search_and_paste_pipeline(request: TaskRequest, match: re.Match) -> ExecutionPlan:
+    topic = (match.group(1) or request.command).strip()
+    raw_app = (match.group(2) or "word").strip()
+    clean_app = re.sub(r"\s+(?:app|application|program)$", "", raw_app, flags=re.I).strip()
+    clean_topic = re.sub(
+        r"^(?:(?:on|in|from|using)?\s*(?:google|bing|web)\s+(?:for\s+)?|for\s+|about\s+)",
+        "",
+        topic,
+        flags=re.I,
+    ).strip()
+
+    return ExecutionPlan(
+        task_id=request.task_id,
+        steps=[
+            PlanStep(
+                agent="browser",
+                objective=f"open google and search {clean_topic}",
+                reason=f"Step 1: Search live web for {clean_topic}.",
+                expected_output="Live search results loaded.",
+                required_capabilities=tuple(agent_capabilities("browser")),
+                risk_level="low",
+            ),
+            PlanStep(
+                agent="research",
+                objective=f"Extract factual evidence, rankings, and details for {clean_topic}",
+                reason="Step 2: Research specialist extracts factual content.",
+                expected_output="Structured factual content and verified data.",
+                required_capabilities=tuple(agent_capabilities("research")),
+                risk_level="low",
+                dependencies=["browser"],
+            ),
+            PlanStep(
+                agent="chat",
+                objective=f"Summarize findings for {clean_topic}",
+                reason="Step 3: Synthesize direct summary of findings.",
+                expected_output="Comprehensive summary ready for document placement.",
+                required_capabilities=tuple(agent_capabilities("chat")),
+                risk_level="low",
+                dependencies=["research"],
+            ),
+            PlanStep(
+                agent="computer",
+                objective=f"open {clean_app} and paste it",
+                reason=f"Step 4: Computer specialist launches {clean_app.title()}, prepares an editable document canvas, and pastes the synthesized findings.",
+                expected_output=f"Content verified and pasted into {clean_app.title()}.",
+                required_capabilities=tuple(agent_capabilities("computer")),
+                risk_level="low",
+                dependencies=["chat"],
+            ),
+        ],
+        explanation=f"Autonomous pipeline: Search '{clean_topic}' -> Extract facts -> Synthesize answer -> Launch {clean_app.title()} and paste content.",
+        source="search-and-paste-pipeline",
+        confidence=95.0,
+    )
+
+
+def _build_compose_and_paste_pipeline(
+    request: TaskRequest,
+    match: re.Match | None = None,
+    parsed: ParsedInstruction | None = None,
+) -> ExecutionPlan:
+    if parsed:
+        clean_app = parsed.application or desktop_memory.get_last_app() or "word"
+        content_type = parsed.content_type or "document"
+        clean_topic = parsed.content_topic or "the requested topic"
+        length_constraints = dict(parsed.length_constraints)
+        save_required = parsed.save_required
+        save_path = parsed.save_path
+    else:
+        raw_app = (match.group(1) or match.group(4)) if match else None
+        content_type = (match.group(2) or "essay").strip() if match else "essay"
+        topic = (match.group(3) or "").strip() if match else ""
+        if not raw_app:
+            raw_app = desktop_memory.get_last_app() or "word"
+
+        clean_app = re.sub(r"\s+(?:app|application|program)$", "", raw_app, flags=re.I).strip()
+        clean_topic = re.sub(r"^(?:on|about|for|to)\s+", "", topic, flags=re.I).strip() or topic
+        length_constraints = {}
+        save_required = False
+        save_path = None
+
+    app_lower = clean_app.lower()
+    if app_lower in ("word", "winword", "microsoft word", "ms word"):
+        clean_app = "word"
+    elif app_lower in ("excel", "ms excel"):
+        clean_app = "excel"
+    elif app_lower in ("powerpoint", "ppt", "powerpnt"):
+        clean_app = "powerpoint"
+
+    line_count = length_constraints.get("lines")
+    line_spec = f" containing exactly {line_count} non-empty paragraphs" if line_count else ""
+
+    chat_input = {
+        "content_type": content_type,
+        "topic": clean_topic,
+        "length_constraints": length_constraints,
+        "save_required": save_required,
+        "save_path": save_path,
+        "original_command": request.command,
+    }
+
+    comp_obj = f"open {clean_app} and paste it"
+    if save_required and save_path:
+        comp_obj += f" and save as {save_path}"
+
+    comp_input = {
+        "application": clean_app,
+        "length_constraints": length_constraints,
+        "save_required": save_required,
+        "save_path": save_path,
+    }
+
+    return ExecutionPlan(
+        task_id=request.task_id,
+        steps=[
+            PlanStep(
+                agent="chat",
+                objective=f"Write a comprehensive {content_type}{line_spec} on {clean_topic}",
+                reason=f"Step 1: Chat specialist generates complete, high-quality {content_type} on {clean_topic}.",
+                expected_output=f"Full {content_type} on {clean_topic}.",
+                required_capabilities=tuple(agent_capabilities("chat")),
+                risk_level="low",
+                input_data=chat_input,
+            ),
+            PlanStep(
+                agent="computer",
+                objective=comp_obj,
+                reason=f"Step 2: Computer specialist launches {clean_app.title()}, prepares a blank document canvas, pastes the complete {content_type}, and verifies content.",
+                expected_output=f"The {content_type} is pasted and verified in {clean_app.title()}.",
+                required_capabilities=tuple(agent_capabilities("computer")),
+                risk_level="low",
+                input_data=comp_input,
+                dependencies=["chat"],
+            ),
+        ],
+        explanation=f"Autonomous content pipeline: Generate {content_type} on '{clean_topic}' -> Open {clean_app.title()}, select Blank Document, paste text, and verify completion.",
+        source="compose-and-paste-pipeline",
+        confidence=95.0,
+    )
 
 
 class TaskPlanner:
@@ -121,6 +350,7 @@ Available specialists:
 - chat: conversation, general knowledge, explanations, calculations, writing, and advice.
 - browser: actions in the live browser, such as opening a site, navigating, clicking, typing, scrolling, or playing something.
 - research: investigate a topic, compare options or entities, analyse current/latest developments, gather evidence from multiple sources, or produce a source-backed summary.
+- computer: actions on the Windows desktop, such as observing open windows, launching approved desktop applications (Word, Excel, PowerPoint, Notepad, Calculator, File Explorer, Discord, Spotify, Slack, Paint, Settings, or any installed Windows desktop app), typing text into desktop apps, clicking desktop UI elements, creating notes, or closing windows.
 
 Planning rules:
 - This is the AI planning stage. You classify intent and return a plan; the Orchestrator validates the plan and dispatches the specialist(s). Do not claim to execute a specialist yourself.
@@ -136,7 +366,7 @@ Planning rules:
 - Ordinary questions and calculations are one chat step.
 - If you are unsure which specialist or action the user intends, do NOT guess or dispatch a risky action. Return a single chat step and ask one concise clarifying question in `reply`.
 - Set confidence from 0 to 100 for your routing decision. Below 60 means you are not confident enough to dispatch the proposed specialist; the Orchestrator will route the request to Chat for clarification instead.
-- If the user asks for a capability NOVA does not currently have (for example creating/editing a local file or controlling the Windows desktop), use one chat step and clearly explain the limitation. Do not pretend it was done.
+- If the user asks for a capability NOVA does not currently have (for example modifying the Windows registry or running arbitrary shell scripts), use one chat step and clearly explain the limitation. Do not pretend it was done.
 - If the user requests an external browser action with a potentially important effect (send, submit, publish, delete, purchase, transfer, book, reserve, or account/security changes), route it to Browser when appropriate. The Orchestrator—not Qwen—will require explicit user approval before the action is allowed to run. Never claim the action happened before the Orchestrator reports completion.
 - Always leave `reply` empty for normal requests. The selected Chat specialist creates the user-facing answer after routing.
 - For ambiguous requests only, `reply` may contain one concise clarification question.
@@ -147,7 +377,7 @@ Planning rules:
 {language_policy}
 
 Return ONLY valid JSON with this exact shape:
-{{"confidence":85,"clarification_required":false,"steps":[{{"agent":"chat|browser|research","objective":"specific action","reason":"short reason","expected_output":"what this step should return","required_capabilities":["capability from selected agent"],"dependencies":[],"risk_level":"low|medium|high"}}],"reply":"empty except for a clarification question"}}
+{{"confidence":85,"clarification_required":false,"steps":[{{"agent":"chat|browser|research|computer","objective":"specific action","reason":"short reason","expected_output":"what this step should return","required_capabilities":["capability from selected agent"],"dependencies":[],"risk_level":"low|medium|high"}}],"reply":"empty except for a clarification question"}}
 
 {history}
 
@@ -229,8 +459,23 @@ USER REQUEST:
     def _fallback(self, request: TaskRequest, error: str = "") -> ExecutionPlan:
         """Conservative deterministic fallback if model planning is unavailable."""
         command = request.command
+        compose_paste_match = _COMPOSE_AND_WRITE_PATTERN.match(command)
+        if compose_paste_match:
+            return _build_compose_and_paste_pipeline(request, compose_paste_match)
+
+        search_paste_match = _SEARCH_AND_PASTE_PATTERN.match(command)
+        if search_paste_match:
+            return _build_search_and_paste_pipeline(request, search_paste_match)
+
+        pipeline_match = _BROWSE_RESEARCH_CHAT_PATTERN.match(command)
+        if pipeline_match:
+            return _build_multi_agent_pipeline(request, pipeline_match)
+
         explicit_browser = self._is_explicit_action_request(command)
-        if _RESEARCH_FALLBACK.search(command):
+        if _DESKTOP_FALLBACK.search(command):
+            selected = "computer"
+            reason = "Fallback: request contains clear desktop automation intent."
+        elif _RESEARCH_FALLBACK.search(command):
             selected = "research"
             reason = "Fallback: request contains clear research/comparison intent."
         elif explicit_browser:
@@ -258,6 +503,56 @@ USER REQUEST:
         )
 
     def create_plan(self, request: TaskRequest) -> ExecutionPlan:
+        agent_mode = str((request.context or {}).get("agent_mode", "auto") or "auto").strip().lower()
+        if agent_mode in {"coder", "coding"}:
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="coder",
+                    objective=request.command,
+                    reason="User selected Coder mode; routed directly to Coder Specialist.",
+                    input_data={"planner_source": "user-mode-override", "mode": "coder"},
+                    expected_output="Verified code, script, AST-validated implementation, or engineering response.",
+                    required_capabilities=tuple(agent_capabilities("coder")),
+                    risk_level="low",
+                )],
+                explanation="Coder mode selected: routed directly to Coder Specialist.",
+                source="user-mode-override",
+                confidence=100.0,
+            )
+        if agent_mode in {"computer", "desktop"}:
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="computer",
+                    objective=request.command,
+                    reason="User selected Desktop mode; routed directly to Computer Specialist.",
+                    input_data={"planner_source": "user-mode-override", "mode": "desktop"},
+                    expected_output="Verified desktop interaction.",
+                    required_capabilities=tuple(agent_capabilities("computer")),
+                    risk_level="medium",
+                )],
+                explanation="Desktop mode selected: routed directly to Computer Specialist.",
+                source="user-mode-override",
+                confidence=100.0,
+            )
+        if agent_mode in {"browser", "web"}:
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="browser",
+                    objective=request.command,
+                    reason="User selected Browser mode; routed directly to Browser specialist.",
+                    input_data={"planner_source": "user-mode-override", "mode": "browser"},
+                    expected_output="Verified browser interaction.",
+                    required_capabilities=tuple(agent_capabilities("browser")),
+                    risk_level="medium",
+                )],
+                explanation="Browser mode selected: routed directly to Browser Specialist.",
+                source="user-mode-override",
+                confidence=100.0,
+            )
+
         reaction = match_reaction(request.command)
         selected_language = normalize_language(request.context.get("language", "auto"), default="auto")
         detected_language = detect_language_from_text(request.command, fallback="en") if selected_language == "auto" else selected_language
@@ -275,11 +570,142 @@ USER REQUEST:
                 confidence=100.0,
             )
 
+        # Automatic Developer & Code Task Routing
+        cmd_lower = request.command.lower()
+        if any(cmd_lower.startswith(prefix) for prefix in ["def ", "class ", "git ", "npm ", "pytest", "unittest"]) or \
+           re.search(r"\b(?:write\s+code|code\s+for|create\s+(?:a\s+)?(?:python|javascript|typescript|react)?\s*function|debug\s+code|run\s+tests?|inspect\s+file\s+[a-zA-Z0-9_\-\.]+|apply\s+diff|write\s+(?:a\s+)?(?:python|bash|powershell|node)\s*script)\b", cmd_lower):
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="coder",
+                    objective=request.command,
+                    reason="Programming and code development intent identified.",
+                    input_data={"planner_source": "code-intent-matcher"},
+                    expected_output="Synthesized, syntax-validated code or test execution report.",
+                    required_capabilities=tuple(agent_capabilities("coder")),
+                    risk_level="low",
+                )],
+                explanation="Developer task identified: routed to Coder Specialist.",
+                source="code-intent-matcher",
+                confidence=95.0,
+            )
+
+        command = str(request.command or "").strip()
+
+        # Proactively detect ambiguous or underspecified commands and ask clarification directly
+        _AMBIGUOUS_PATTERNS = re.compile(
+            r"^(?:(?:hey|hi|hello)\s+nova[,!\s]+)?(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+)?(?:please\s+)?"
+            r"(?:open\s+(?:it|that|this|something|anything|the\s+thing)|"
+            r"search\s+(?:it|that|this|for\s+it|for\s+that)|"
+            r"do\s+(?:it|that|this)|"
+            r"run\s+(?:it|that)|"
+            r"go\s+there|"
+            r"click\s+(?:it|that)|"
+            r"summarize\s+(?:it|that|this)|"
+            r"open\s*$|"
+            r"search\s*$|"
+            r"summarize\s*$|"
+            r"search\s+(?:on\s+)?(?:google|youtube|web)\s*$)[\.\?!]?$",
+            re.IGNORECASE
+        )
+        if _AMBIGUOUS_PATTERNS.match(command):
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="chat",
+                    objective="Clarify request with user",
+                    reason="Instruction is ambiguous or missing required parameters.",
+                    input_data={
+                        "needs_clarification": True,
+                        "clarification_topic": f"The request '{command}' is unclear or missing its target.",
+                        "reply": "Could you clarify what you'd like me to open, search, or summarize?",
+                    },
+                    required_capabilities=tuple(agent_capabilities("chat")),
+                )],
+                explanation="Ambiguous command: asking user for clarification.",
+                source="clarification-rule",
+                confidence=100.0,
+                clarification_required=True,
+            )
+
+        # Structured instruction parsing (handles conversational prefixes, decoupled topics, length constraints, and applications)
+        parsed = parse_instruction(command)
+        if parsed.is_creative_generation:
+            return _build_compose_and_paste_pipeline(request, parsed=parsed)
+
+        # Multi-agent autonomous pipeline: "search for ... and paste it in <app>"
+        search_paste_match = _SEARCH_AND_PASTE_PATTERN.match(command)
+        if search_paste_match:
+            return _build_search_and_paste_pipeline(request, search_paste_match)
+
+        # Multi-agent sequential pipeline: "open Wikipedia and search ... and tell me ..."
+        pipeline_match = _BROWSE_RESEARCH_CHAT_PATTERN.match(command)
+        if pipeline_match:
+            return _build_multi_agent_pipeline(request, pipeline_match)
+
+        if parsed.is_browser_action:
+            topic = parsed.content_topic or command
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="browser",
+                    objective=f"open {parsed.application or 'browser'} and search {topic}",
+                    reason="Direct web search and extract route.",
+                    input_data={"planner_source": "fast-search-route", "topic": topic},
+                    expected_output="Extracted web page content and summary.",
+                    required_capabilities=tuple(agent_capabilities("browser")),
+                    risk_level="low",
+                )],
+                explanation="Fast Web Search route: bypassed planning latency.",
+                source="fast-search-route",
+                confidence=95.0,
+            )
+
+        # Multi-agent autonomous pipeline: "open <app> and write an essay on <topic>" or "write an essay on <topic> in <app>"
+        compose_paste_match = _COMPOSE_AND_WRITE_PATTERN.match(command)
+        if compose_paste_match:
+            return _build_compose_and_paste_pipeline(request, match=compose_paste_match)
+
+        # Fast-dispatch for explicit search & browse requests (0ms planning latency)
+        if re.search(r"^(?:search\s+(?:google|the\s+web|web)\s+for\s+|google\s+|search\s+for\s+)", command, re.I):
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="browser",
+                    objective=command,
+                    reason="Direct web search and extract route.",
+                    input_data={"planner_source": "fast-search-route"},
+                    expected_output="Extracted web page content and summary.",
+                    required_capabilities=tuple(agent_capabilities("browser")),
+                    risk_level="low",
+                )],
+                explanation="Fast Web Search route: bypassed planning latency.",
+                source="fast-search-route",
+                confidence=95.0,
+            )
+
+        # Fast-dispatch for clear desktop automation commands
+        if _DESKTOP_FALLBACK.search(command):
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="computer",
+                    objective=command,
+                    reason="Clear desktop application control intent.",
+                    input_data={"planner_source": "fast-desktop-route"},
+                    expected_output="Verified desktop application action.",
+                    required_capabilities=tuple(agent_capabilities("computer")),
+                    risk_level="medium",
+                )],
+                explanation="Fast Desktop route: bypassed planning latency.",
+                source="fast-desktop-route",
+                confidence=95.0,
+            )
+
         # Conversational questions should not pay for a separate Qwen planning
         # pass before ChatAgent invokes Qwen again to answer. Only explicit
         # actions and requests that need fresh/researched information use the
         # full planner. The default path is one direct, streamable Chat call.
-        command = str(request.command or "").strip()
         explicit_action = self._is_explicit_action_request(command)
         needs_research = bool(_RESEARCH_FALLBACK.search(command) or _LIVE_INFO_FALLBACK.search(command))
         if not explicit_action and not needs_research:
@@ -352,8 +778,8 @@ USER REQUEST:
                     clarification_required=True,
                 )
 
-            if len(raw_steps) > 3:
-                return self._fallback(request, "Qwen proposed more than the 3-step plan limit.")
+            if len(raw_steps) > 6:
+                return self._fallback(request, "Qwen proposed more than the 6-step plan limit.")
 
             steps: list[PlanStep] = []
             for index, raw_step in enumerate(raw_steps):
@@ -410,3 +836,91 @@ USER REQUEST:
         except Exception as exc:
             self._log_model_error(exc)
             return self._fallback(request, f"MODEL_UNAVAILABLE: {type(exc).__name__}: {exc}")
+
+    def evaluate_step_outcome(self, step: PlanStep, result: Any) -> StepCritique:
+        """Outcome validation / self-critique loop.
+        Evaluates whether the completed specialist result truly fulfilled the step objective
+        or encountered subtle failures (empty content, 404, blocked gate, missing window).
+        """
+        if getattr(result, "status", None) in {"failed", "timed_out"}:
+            err_msg = "; ".join(result.errors) if getattr(result, "errors", None) else getattr(result, "message", "")
+            return StepCritique(
+                satisfied=False,
+                confidence=0.95,
+                critique_notes=f"{step.agent.title()} step reported {result.status}: {err_msg}",
+                suggested_recovery_agent=self._suggest_recovery_agent(step.agent, err_msg),
+            )
+
+        msg = (getattr(result, "message", "") or "").lower()
+        data = getattr(result, "data", {}) or {}
+
+        if step.agent in {"browser", "research"}:
+            sources = data.get("sources") or data.get("search_results") or []
+            content = data.get("article_content") or data.get("ai_overview") or getattr(result, "message", "")
+            if not content or len(str(content).strip()) < 10:
+                return StepCritique(
+                    satisfied=False,
+                    confidence=0.85,
+                    critique_notes="Browser/Research completed without returning informative content.",
+                    suggested_recovery_agent="research" if step.agent == "browser" else "chat",
+                )
+
+        if step.agent == "computer":
+            if "could not find" in msg or "not running" in msg or "failed to focus" in msg or "not installed" in msg:
+                return StepCritique(
+                    satisfied=False,
+                    confidence=0.9,
+                    critique_notes=f"Computer action could not locate or focus target: {getattr(result, 'message', '')}",
+                    suggested_recovery_agent="browser",
+                )
+
+        return StepCritique(satisfied=True, confidence=1.0, critique_notes="Step objective verified.")
+
+    def _suggest_recovery_agent(self, failed_agent: str, error_text: str) -> str:
+        err = (error_text or "").lower()
+        if "not installed" in err or "not found" in err or "cannot open" in err:
+            return "browser"
+        if failed_agent == "browser":
+            return "research"
+        if failed_agent == "research":
+            return "chat"
+        return "chat"
+
+    def reflect_and_replan(
+        self,
+        request: TaskRequest,
+        failed_step: PlanStep,
+        result: Any,
+        completed_steps: list[dict[str, Any]],
+    ) -> PlanStep | None:
+        """Dynamic replanning upon failure: synthesize a recovery step based on failure reflection."""
+        critique = self.evaluate_step_outcome(failed_step, result)
+        if critique.satisfied:
+            return None
+
+        recovery_agent = critique.suggested_recovery_agent or "chat"
+        err_msg = "; ".join(result.errors) if getattr(result, "errors", None) else getattr(result, "message", "")
+
+        # Fallback 1: Desktop app not installed -> fall back to browser web version
+        if failed_step.agent == "computer" and any(k in err_msg.lower() for k in ["not installed", "not found", "cannot find"]):
+            app_match = re.search(r"\b([a-zA-Z0-9_\-]+)\b", failed_step.objective)
+            app_name = app_match.group(1) if app_match else "the application"
+            return PlanStep(
+                agent="browser",
+                objective=f"Open web version of {app_name} and complete: {request.command}",
+                reason=f"Dynamic replan: {app_name} desktop app not installed; switching to browser version.",
+                expected_output=f"Web navigation to {app_name} completed.",
+                risk_level="low",
+            )
+
+        # Fallback 2: Browser blocked or timed out -> fall back to research specialist
+        if failed_step.agent == "browser" and any(k in err_msg.lower() for k in ["blocked", "timed out", "timeout", "captcha"]):
+            return PlanStep(
+                agent="research",
+                objective=request.command,
+                reason="Dynamic replan: Direct browser blocked or timed out; switching to multi-source research.",
+                expected_output="Gathered research summary and verified sources.",
+                risk_level="low",
+            )
+
+        return None

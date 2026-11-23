@@ -1,5 +1,21 @@
-"""Zero-LLM response specialist for exact, safe conversational reactions."""
 from __future__ import annotations
+import sys
+
+def _safe_print(*args, **kwargs):
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        try:
+            sep = kwargs.get("sep", " ")
+            end = kwargs.get("end", "\n")
+            text = sep.join(str(a) for a in args) + end
+            encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+            sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+"""Zero-LLM response specialist for exact, safe conversational reactions."""
 
 from ..contracts import AgentResult, TaskRequest
 
@@ -26,8 +42,8 @@ class ReactionAgent:
                 add_history(request.command, reply)
         except Exception:
             pass
-        print("\n💬 NOVA")
-        print(reply)
+        _safe_print("\n💬 NOVA")
+        _safe_print(reply)
         print()
         return AgentResult(
             task_id=request.task_id,

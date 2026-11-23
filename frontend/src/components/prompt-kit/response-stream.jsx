@@ -14,12 +14,12 @@ export function ResponseStream({
   as = 'div',
   renderText,
 }) {
-  const [displayedText, setDisplayedText] = useState('')
   const text = typeof textStream === 'string' ? textStream : String(textStream ?? '')
+  const isTypewriter = mode === 'typewriter' && Boolean(text)
+  const [displayedText, setDisplayedText] = useState('')
 
   useEffect(() => {
-    if (mode !== 'typewriter' || !text) {
-      setDisplayedText(text)
+    if (!isTypewriter) {
       onComplete?.()
       return undefined
     }
@@ -31,7 +31,6 @@ export function ResponseStream({
     const normalizedSpeed = Math.min(100, Math.max(1, Number(speed) || 20))
     const delay = Math.max(1, Math.round(100 / Math.sqrt(normalizedSpeed)))
     const chunkSize = normalizedSpeed < 25 ? 1 : Math.max(1, Math.round((normalizedSpeed - 25) / 10))
-    setDisplayedText('')
 
     const tick = (timestamp) => {
       if (cancelled) return
@@ -54,10 +53,11 @@ export function ResponseStream({
       cancelled = true
       if (frame) window.cancelAnimationFrame(frame)
     }
-  }, [text, mode, speed, onComplete])
+  }, [text, isTypewriter, speed, onComplete])
 
   const Element = as
-  const content = typeof renderText === 'function' ? renderText(displayedText) : displayedText
+  const activeText = isTypewriter ? displayedText : text
+  const content = typeof renderText === 'function' ? renderText(activeText) : activeText
   return <Element className={className}>{content}</Element>
 }
 
