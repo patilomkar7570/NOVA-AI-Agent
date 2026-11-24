@@ -651,7 +651,7 @@ const [task, setTask] = useState('')
   const autoFallbackStartedRef = useRef(false)
   const [agentMode, setAgentMode] = useState(() => {
     const saved = localStorage.getItem('nova-agent-mode')
-    return ['auto', 'browser', 'desktop'].includes(saved) ? saved : 'auto'
+    return ['auto', 'browser', 'desktop', 'coder'].includes(saved) ? saved : 'auto'
   })
 
   const handleModeChange = useCallback(async (newMode) => {

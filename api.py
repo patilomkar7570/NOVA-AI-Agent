@@ -815,8 +815,6 @@ def enqueue_task(command: str, chat_id: str, voice_stream: bool = False, languag
         resolved_mode = "desktop"
     elif resolved_mode == "coding":
         resolved_mode = "coder"
-    elif resolved_mode == "nova_bronze":
-        resolved_mode = "bronze"
     with _task_submission_lock:
         with _task_records_lock:
             active_jobs = running or any(
@@ -1581,7 +1579,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "mode": _default_agent_mode,
-                "available_modes": ["auto", "browser", "desktop", "coder", "bronze"],
+                "available_modes": ["auto", "browser", "desktop", "coder"],
             })
             return
 
@@ -1606,7 +1604,7 @@ class Handler(BaseHTTPRequestHandler):
                     "activeSite": getattr(agent, "ACTIVE_SITE", ""),
                     "activeAgent": active_agent,
                     "agent_mode": _default_agent_mode,
-                    "available_modes": ["auto", "browser", "desktop", "coder", "bronze"],
+                    "available_modes": ["auto", "browser", "desktop", "coder"],
                     "architecture": "router-planner-specialists",
                     "application": {
                         "name": APP_NAME,
@@ -1710,13 +1708,11 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 body = {}
             target_mode = str(body.get("mode") or body.get("agent_mode") or "auto").strip().lower()
-            if target_mode in {"auto", "browser", "desktop", "computer", "coder", "coding", "bronze", "nova_bronze"}:
+            if target_mode in {"auto", "browser", "desktop", "computer", "coder", "coding"}:
                 if target_mode == "computer":
                     _default_agent_mode = "desktop"
                 elif target_mode == "coding":
                     _default_agent_mode = "coder"
-                elif target_mode == "nova_bronze":
-                    _default_agent_mode = "bronze"
                 else:
                     _default_agent_mode = target_mode
                 self._send_json(200, {
@@ -1727,7 +1723,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send_json(400, {
                     "ok": False,
-                    "error": f"Invalid mode '{target_mode}'. Choose from: auto, browser, desktop, coder, bronze",
+                    "error": f"Invalid mode '{target_mode}'. Choose from: auto, browser, desktop, coder",
                 })
             return
 
@@ -2178,8 +2174,6 @@ class Handler(BaseHTTPRequestHandler):
                 mode = "desktop"
             elif mode == "coding":
                 mode = "coder"
-            elif mode == "nova_bronze":
-                mode = "bronze"
             status, payload = enqueue_task(
                 command,
                 chat_id,

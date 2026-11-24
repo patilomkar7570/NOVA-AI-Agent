@@ -116,7 +116,7 @@ class QAStressAndChaosTestSuite(unittest.TestCase):
 
     def test_02_rapid_concurrent_mode_switching(self):
         """QA Stress: 5 threads rapidly switching agent execution modes 50 times."""
-        modes = ["auto", "browser", "desktop", "coder", "bronze"]
+        modes = ["auto", "browser", "desktop", "coder"]
         switches = 50
         errors = []
 
@@ -130,7 +130,7 @@ class QAStressAndChaosTestSuite(unittest.TestCase):
                         context={"agent_mode": target_mode},
                     )
                     plan = self.planner.create_plan(req)
-                    if target_mode in ["coder", "bronze", "desktop", "browser"]:
+                    if target_mode in ["coder", "desktop", "browser"]:
                         if plan.source != "user-mode-override":
                             errors.append(f"Mismatch: expected user-mode-override for {target_mode}, got {plan.source}")
                     else:
