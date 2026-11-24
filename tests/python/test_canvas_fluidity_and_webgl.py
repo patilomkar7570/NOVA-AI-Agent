@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for Continuous Fluid Drag-and-Drop & WebGL 3D Canvas Gestures."""
 import os
 import unittest
@@ -14,7 +19,7 @@ class CanvasFluidityAndWebGLTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ.pop("NOVA_TEST_MODE", None)
+        pass
 
     def test_drag_and_drop_bezier_physics_trajectory(self):
         executor = ActionExecutor()

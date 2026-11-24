@@ -33,6 +33,15 @@ function DesktopIcon() {
   );
 }
 
+function CoderIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+}
+
 function ChevronDownIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -49,18 +58,43 @@ function CheckIcon() {
   );
 }
 
+function BronzeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c89658" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 const MODES = [
   { id: 'auto', label: 'Auto', description: 'Intelligent multi-agent routing', icon: SparkleIcon },
   { id: 'browser', label: 'Browser', description: 'Direct web & browser automation', icon: BrowserIcon },
   { id: 'desktop', label: 'Desktop', description: 'Direct Windows desktop automation', icon: DesktopIcon },
+  { id: 'coder', label: 'Coder', description: 'DeepSeek-Hardness coding & workspace tools', icon: CoderIcon },
+  { id: 'bronze', label: 'NOVA Bronze', description: 'Fast on-device local Bronze engine', icon: BronzeIcon },
 ];
 
 export default function ModelSelector({ currentMode = 'auto', onSelectMode, className = '', dropUp = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [placement, setPlacement] = useState('up'); // Default UP to avoid dropping below suggestions
   const containerRef = useRef(null);
 
   const selected = MODES.find((m) => m.id === currentMode) || MODES[0];
   const CurrentIcon = selected.icon;
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // If dropUp is explicitly true, or if space below is tighter than 260px, or space above is larger, open UP!
+      if (dropUp || spaceBelow < 260 || spaceAbove > spaceBelow) {
+        setPlacement('up');
+      } else {
+        setPlacement('down');
+      }
+    }
+  }, [isOpen, dropUp]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -92,7 +126,7 @@ export default function ModelSelector({ currentMode = 'auto', onSelectMode, clas
     <div className={`model-selector-wrapper ${className}`} ref={containerRef}>
       <button
         type="button"
-        className={`model-selector-trigger ${isOpen ? 'is-open' : ''}`}
+        className={`model-selector-trigger ${isOpen ? 'is-open' : ''} ${selected.id === 'bronze' ? 'is-bronze' : ''}`}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -108,7 +142,11 @@ export default function ModelSelector({ currentMode = 'auto', onSelectMode, clas
       </button>
 
       {isOpen && (
-        <div className={`model-selector-dropdown ${dropUp ? 'drop-up' : ''}`} role="listbox" aria-label="Select execution mode">
+        <div
+          className={`model-selector-dropdown ${placement === 'up' ? 'drop-up' : 'drop-down'}`}
+          role="listbox"
+          aria-label="Select execution mode"
+        >
           <div className="model-selector-dropdown-header">Execution Mode</div>
           {MODES.map((mode) => {
             const isSelected = mode.id === currentMode;
@@ -119,7 +157,7 @@ export default function ModelSelector({ currentMode = 'auto', onSelectMode, clas
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                className={`model-selector-dropdown-item ${isSelected ? 'is-active' : ''}`}
+                className={`model-selector-dropdown-item ${isSelected ? 'is-active' : ''} ${mode.id === 'bronze' ? 'is-bronze-item' : ''}`}
                 onClick={() => handleSelect(mode.id)}
               >
                 <span className="model-selector-item-icon">

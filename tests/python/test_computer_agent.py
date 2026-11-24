@@ -1,6 +1,11 @@
-"""Comprehensive regression tests for NOVA's ComputerAgent specialist."""
 from __future__ import annotations
 
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
+"""Comprehensive regression tests for NOVA's ComputerAgent specialist."""
 import os
 import threading
 import time
@@ -36,9 +41,18 @@ class FakeAgent:
 
 
 class ComputerAgentTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ["NOVA_TEST_MODE"] = "1"
+        os.environ["NOVA_SANDBOX_MODE"] = "1"
+        os.environ["NOVA_HEADLESS"] = "1"
+
     def setUp(self):
+        os.environ["NOVA_TEST_MODE"] = "1"
+        os.environ["NOVA_SANDBOX_MODE"] = "1"
+        os.environ["NOVA_HEADLESS"] = "1"
         self.agent_module = FakeAgent()
-        self.computer_agent = ComputerAgent(self.agent_module)
+        self.computer_agent = ComputerAgent(self.agent_module, sandbox=True)
 
     def test_registry_includes_computer_specialist(self):
         ids = agent_ids()

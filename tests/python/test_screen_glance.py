@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for Screen Glance Multimodal Vision Co-Pilot (nova_vision_glance.py)."""
 import os
 import shutil
@@ -14,7 +19,7 @@ class ScreenGlanceTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ.pop("NOVA_TEST_MODE", None)
+        pass
 
     def setUp(self):
         self.engine = ScreenGlanceEngine()

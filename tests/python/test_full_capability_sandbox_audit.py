@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Comprehensive Sandbox Capability Audit and Stress Benchmark for NOVA AI Agent.
 
 Executes complex tasks across all 6 core specialist agents in strict sandbox mode:
@@ -8,8 +15,6 @@ Executes complex tasks across all 6 core specialist agents in strict sandbox mod
 5. TaskPlanner & Multi-Step Pipeline (Cross-agent handoffs, anaphora resolution, context preservation)
 6. Security, Memory Isolation & Ambiguity Resolution (Contact fuzzy match clarification, allowlist bounds, zero leak)
 """
-from __future__ import annotations
-
 import os
 import shutil
 import tempfile
@@ -72,7 +77,6 @@ class FullCapabilitySandboxAuditTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ.pop("NOVA_TEST_MODE", None)
         os.environ.pop("NOVA_TEST_CLARIFICATION", None)
 
     def setUp(self):

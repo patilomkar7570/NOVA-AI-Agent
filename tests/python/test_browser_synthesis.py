@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for fast web search routing, ambiguity clarification, and page synthesis."""
 import unittest
 from types import SimpleNamespace

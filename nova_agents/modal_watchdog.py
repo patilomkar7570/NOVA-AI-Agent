@@ -75,7 +75,7 @@ class ModalWatchdog:
         Returns:
             {"cleared": bool, "barrier_title": str | None, "focus_restored": bool}
         """
-        if not user32 or os.environ.get("NOVA_TEST_MODE") == "1":
+        if not user32 or os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1":
             return {"cleared": True, "barrier_title": None, "focus_restored": True}
 
         fg_info = cls.get_foreground_info()

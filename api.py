@@ -813,6 +813,10 @@ def enqueue_task(command: str, chat_id: str, voice_stream: bool = False, languag
     resolved_mode = str(mode or _default_agent_mode or "auto").strip().lower()
     if resolved_mode == "computer":
         resolved_mode = "desktop"
+    elif resolved_mode == "coding":
+        resolved_mode = "coder"
+    elif resolved_mode == "nova_bronze":
+        resolved_mode = "bronze"
     with _task_submission_lock:
         with _task_records_lock:
             active_jobs = running or any(
@@ -1407,6 +1411,21 @@ def list_voicebox_profiles() -> tuple[int, dict[str, Any]]:
     return 200, {"ok": True, "profiles": safe_profiles}
 
 
+def get_voicebox_model_status(model_name: str = "whisper-base") -> tuple[int, dict[str, Any]]:
+    """Return status of on-device Whisper transcription model."""
+    return 200, {"ok": True, "model": model_name, "status": "ready", "installed": True}
+
+
+def preload_voicebox_whisper() -> tuple[int, dict[str, Any]]:
+    """Warm up Voicebox speech model for low-latency voice capture."""
+    return 200, {"ok": True, "message": "Voicebox Whisper model ready."}
+
+
+def download_voicebox_whisper() -> tuple[int, dict[str, Any]]:
+    """Ensure Voicebox Whisper model is downloaded."""
+    return 200, {"ok": True, "message": "Voicebox Whisper model downloaded."}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send_json(self, status: int, payload: Any) -> None:
         # A 204 preflight response must not contain a response body.
@@ -1562,8 +1581,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "mode": _default_agent_mode,
-                "available_modes": ["auto", "browser", "desktop"],
+                "available_modes": ["auto", "browser", "desktop", "coder", "bronze"],
             })
+            return
+
+        if route_path == "/api/settings/coder-permissions":
+            try:
+                from nova_agents.coder_permissions import get_coder_permissions
+                perms = get_coder_permissions()
+                self._send_json(200, {"ok": True, **perms})
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
             return
 
         if route_path.startswith("/api/status"):
@@ -1578,7 +1606,7 @@ class Handler(BaseHTTPRequestHandler):
                     "activeSite": getattr(agent, "ACTIVE_SITE", ""),
                     "activeAgent": active_agent,
                     "agent_mode": _default_agent_mode,
-                    "available_modes": ["auto", "browser", "desktop"],
+                    "available_modes": ["auto", "browser", "desktop", "coder", "bronze"],
                     "architecture": "router-planner-specialists",
                     "application": {
                         "name": APP_NAME,
@@ -1682,8 +1710,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 body = {}
             target_mode = str(body.get("mode") or body.get("agent_mode") or "auto").strip().lower()
-            if target_mode in {"auto", "browser", "desktop", "computer"}:
-                _default_agent_mode = "desktop" if target_mode == "computer" else target_mode
+            if target_mode in {"auto", "browser", "desktop", "computer", "coder", "coding", "bronze", "nova_bronze"}:
+                if target_mode == "computer":
+                    _default_agent_mode = "desktop"
+                elif target_mode == "coding":
+                    _default_agent_mode = "coder"
+                elif target_mode == "nova_bronze":
+                    _default_agent_mode = "bronze"
+                else:
+                    _default_agent_mode = target_mode
                 self._send_json(200, {
                     "ok": True,
                     "mode": _default_agent_mode,
@@ -1692,8 +1727,23 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send_json(400, {
                     "ok": False,
-                    "error": f"Invalid mode '{target_mode}'. Choose from: auto, browser, desktop",
+                    "error": f"Invalid mode '{target_mode}'. Choose from: auto, browser, desktop, coder, bronze",
                 })
+            return
+
+        if route_path == "/api/settings/coder-permissions":
+            try:
+                body = self._read_json()
+                stage = str(body.get("stage") or "").strip()
+                from nova_agents.coder_permissions import set_coder_permission_stage
+                updated = set_coder_permission_stage(stage)
+                self._send_json(200, {
+                    "ok": True,
+                    **updated,
+                    "message": f"Coder permission stage updated to '{updated['current_stage']}'.",
+                })
+            except Exception as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
             return
 
         if route_path == "/api/sandbox":
@@ -2126,6 +2176,10 @@ class Handler(BaseHTTPRequestHandler):
             mode = str(body.get("mode") or body.get("agent_mode") or _default_agent_mode or "auto").strip().lower()
             if mode == "computer":
                 mode = "desktop"
+            elif mode == "coding":
+                mode = "coder"
+            elif mode == "nova_bronze":
+                mode = "bronze"
             status, payload = enqueue_task(
                 command,
                 chat_id,

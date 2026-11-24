@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for strict per-chat conversational memory isolation and chat deletion purge."""
 import unittest
 import uuid

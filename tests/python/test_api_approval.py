@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """API approval callback tests use a minimal stub instead of launching Brave."""
 import importlib.util
 import sys

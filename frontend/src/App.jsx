@@ -2818,7 +2818,7 @@ const [task, setTask] = useState('')
                   }}
                   placeholder="Ask me to do anything..."
                 />
-                <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} />
+                <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} dropUp />
                 <button
                   className="microphone"
                   aria-label="Start voice input"
@@ -3110,7 +3110,7 @@ const [task, setTask] = useState('')
                       <p>Select how NOVA handles your prompts: Auto routes dynamically, Browser operates web automation, and Desktop operates native Windows applications.</p>
                     </div>
                     <div className="settings-mode-control" style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
-                      <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} />
+                      <ModelSelector currentMode={agentMode} onSelectMode={handleModeChange} dropUp />
                     </div>
                   </section>
 

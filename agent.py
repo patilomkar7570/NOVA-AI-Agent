@@ -346,6 +346,8 @@ def kill_brave():
     """
     if os.name != "nt":
         return
+    if os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1":
+        return
     try:
         profile = os.path.normcase(os.path.abspath(PROFILE_PATH))
         ps = (
@@ -390,12 +392,16 @@ def start_browser():
             _playwright = None
             return False
 
-        os.makedirs(PROFILE_PATH, exist_ok=True)
-        # Sandbox & Test mode guard: if testing or explicitly requested, run headless
+        # Sandbox & Test mode guard: In test or sandbox mode, NEVER launch live browser on user's machine
         is_test_mode = os.environ.get("NOVA_TEST_MODE") == "1"
         is_sandbox_mode = os.environ.get("NOVA_SANDBOX_MODE") == "1"
+        if is_test_mode or is_sandbox_mode:
+            print("🛡️ [Sandbox Guard] Live browser launch bypassed in test/sandbox mode.")
+            return False
+
+        os.makedirs(PROFILE_PATH, exist_ok=True)
         is_headless_req = os.environ.get("NOVA_HEADLESS", "").lower() in ("1", "true")
-        should_run_headless = is_test_mode or is_sandbox_mode or is_headless_req
+        should_run_headless = is_headless_req
 
         if not is_test_mode and not is_sandbox_mode:
             kill_brave()

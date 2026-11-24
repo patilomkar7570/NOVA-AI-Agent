@@ -70,7 +70,7 @@ class WindowsShellLauncher:
         Returns:
             {"success": bool, "protocol": str, "aumid": str | None}
         """
-        if os.environ.get("NOVA_TEST_MODE") == "1":
+        if os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1":
             return {"success": True, "protocol": "shell:AppsFolder", "aumid": f"Mock.{app_alias}!App"}
 
         clean = app_alias.strip()

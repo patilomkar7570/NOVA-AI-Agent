@@ -12497,4 +12497,99 @@ html, body, #root {
   color: #e5ece7;
 }
 
+/* Fast Pure CSS Coder Permission Stage Buttons & Tooltips */
+.coder-stage-pill {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.02);
+  color: #1f2328;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  user-select: none;
+}
+
+.app.dark-mode .coder-stage-pill {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f0f6fc;
+}
+
+.coder-stage-pill:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(200, 150, 88, 0.6);
+  transform: translateY(-1px);
+}
+
+.app.dark-mode .coder-stage-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.coder-stage-pill.is-selected {
+  border: 1.5px solid #c89658;
+  background: rgba(200, 150, 88, 0.10);
+  box-shadow: 0 0 16px rgba(200, 150, 88, 0.22);
+}
+
+.app.dark-mode .coder-stage-pill.is-selected {
+  background: rgba(200, 150, 88, 0.16);
+}
+
+.coder-stage-desc {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: #57606a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.app.dark-mode .coder-stage-desc {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.coder-stage-pill.is-selected .coder-stage-desc {
+  color: #24292f;
+}
+
+.app.dark-mode .coder-stage-pill.is-selected .coder-stage-desc {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.coder-stage-pill .coder-stage-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background: rgba(18, 22, 26, 0.98);
+  border: 1px solid rgba(200, 150, 88, 0.7);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #f0f6fc;
+  width: 250px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  z-index: 99999;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  white-space: normal;
+}
+
+.coder-stage-pill:hover .coder-stage-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+
 

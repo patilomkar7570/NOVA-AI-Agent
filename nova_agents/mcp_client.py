@@ -25,6 +25,8 @@ class MCPClient:
 
     def start(self) -> None:
         """Start the MCP server subprocess."""
+        if os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1":
+            return
         if self._proc is None:
             self._proc = subprocess.Popen(
                 self.server_command,

@@ -1,6 +1,11 @@
-"""Regression tests for NOVA's opt-in voice answer token stream."""
 from __future__ import annotations
 
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
+"""Regression tests for NOVA's opt-in voice answer token stream."""
 import tempfile
 import threading
 import unittest

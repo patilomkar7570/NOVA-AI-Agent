@@ -12,7 +12,7 @@ from typing import Any
 _CRITICAL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("funds_transfer", re.compile(r"\b(wire (?:the )?money|transfer (?:the )?(?:funds|money|cash)|send (?:the )?(?:money|funds)|withdraw (?:cash|funds)|cash advance)\b", re.I)),
     ("high_risk_security_change", re.compile(r"\b(disable|turn off|remove)\b.{0,50}\b(two.factor|2fa|multi.factor authentication|account protection)\b", re.I)),
-    ("desktop_system_destruction", re.compile(r"(?:\bformat\s+[a-z]:|\b(?:shutdown(?:\.exe)?|restart(?:\.exe)?|taskkill\s+/f|rmdir\s+/s|del\s+/[fsq]|reg\s+(?:delete|add)|regedit)\b)", re.I)),
+    ("desktop_system_destruction", re.compile(r"(?:\bformat\s+[a-z]:|\b(?:shutdown(?:\.exe)?|restart(?:-computer)?(?:\.exe)?|taskkill\s+/f|rmdir\s+/s|del\s+/[fsq]|reg\s+(?:delete|add)|regedit|drop\s+database|truncate\s+table)\b)", re.I)),
     ("unrestricted_shell_exec", re.compile(r"\b(?:powershell(?:\.exe)?\s+-(?:e|enc|encodedcommand|c|command)|cmd(?:\.exe)?\s+/[ck]|bash(?:\.exe)?\s+-c)", re.I)),
 )
 

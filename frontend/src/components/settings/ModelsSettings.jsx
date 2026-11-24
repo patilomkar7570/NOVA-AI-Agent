@@ -9,23 +9,57 @@ export default function ModelsSettings({ agentMode, onSelectMode }) {
   const [testStatus, setTestStatus] = useState(null); // { state: 'testing' | 'success' | 'error', message: '' }
   const [saveStatus, setSaveStatus] = useState(null); // { state: 'saving' | 'saved' | 'error', message: '' }
   const [loading, setLoading] = useState(true);
+  const [coderPerms, setCoderPerms] = useState({
+    current_stage: 'necessary',
+    available_stages: [
+      {
+        id: 'minimal',
+        label: 'Stage 1: Minimal (Read-Only)',
+        summary: 'Safe AST syntax check & code diff inspection without disk modifications.',
+        hover_info: 'Read-Only Inspection Mode: Allows CoderAgent to read files and inspect syntax, but strictly blocks any file modifications, unified diff writing, package installations, or shell/test executions on disk.',
+      },
+      {
+        id: 'necessary',
+        label: 'Stage 2: Necessary (Workspace Protected - Recommended)',
+        summary: 'Full read, write, patch, and test execution restricted strictly to the project workspace.',
+        hover_info: 'Balanced Workspace Development (Recommended): Permits reading, writing, patching, and running test suites strictly within the current project workspace repository. Access outside the workspace root and modifications to OS/system drives are strictly prohibited.',
+      },
+      {
+        id: 'all',
+        label: 'Stage 3: All (Full Autonomous Developer)',
+        summary: 'Unrestricted developer autonomy with multi-file edits, Git worktree isolation, and external access.',
+        hover_info: 'Full Autonomous Developer Mode: Grants unrestricted multi-file editing, Git worktree isolation, package management (pip/npm), and system-level test execution across workspace and linked directories under automated safety policy guardrails.',
+      },
+    ],
+  });
+  const [coderPermStatus, setCoderPermStatus] = useState(null);
 
-  // Fetch model settings on mount
+  // Fetch model settings and coder permissions on mount
   useEffect(() => {
     let active = true;
     async function loadSettings() {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/settings/models');
-        if (!res.ok) throw new Error('Failed to load settings');
-        const data = await res.json();
-        if (active && data.ok) {
-          setModelSettings(data.settings);
-          setAvailableGemini(data.available_gemini_models || []);
-          setAvailableLocal(data.available_local_models || []);
-          setApiKeyInput(data.settings?.gemini_api_key || '');
+        const [modelsRes, permsRes] = await Promise.all([
+          fetch('http://127.0.0.1:8000/api/settings/models').catch(() => null),
+          fetch('http://127.0.0.1:8000/api/settings/coder-permissions').catch(() => null),
+        ]);
+        if (active && modelsRes && modelsRes.ok) {
+          const data = await modelsRes.json();
+          if (data.ok) {
+            setModelSettings(data.settings);
+            setAvailableGemini(data.available_gemini_models || []);
+            setAvailableLocal(data.available_local_models || []);
+            setApiKeyInput(data.settings?.gemini_api_key || '');
+          }
+        }
+        if (active && permsRes && permsRes.ok) {
+          const pData = await permsRes.json();
+          if (pData.ok) {
+            setCoderPerms(pData);
+          }
         }
       } catch (err) {
-        console.debug('Failed to fetch model settings:', err);
+        console.debug('Failed to fetch settings:', err);
       } finally {
         if (active) setLoading(false);
       }
@@ -33,6 +67,27 @@ export default function ModelsSettings({ agentMode, onSelectMode }) {
     loadSettings();
     return () => { active = false; };
   }, []);
+
+  const handleSelectCoderStage = async (stageId) => {
+    setCoderPermStatus({ state: 'saving', message: 'Updating permission stage…' });
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/settings/coder-permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: stageId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setCoderPerms((prev) => ({ ...prev, current_stage: data.current_stage }));
+        setCoderPermStatus({ state: 'saved', message: `Coder permissions set to Stage: ${data.current_stage.toUpperCase()}` });
+        setTimeout(() => setCoderPermStatus(null), 3000);
+      } else {
+        setCoderPermStatus({ state: 'error', message: data.error || 'Failed to update stage.' });
+      }
+    } catch (err) {
+      setCoderPermStatus({ state: 'error', message: `Update error: ${err.message}` });
+    }
+  };
 
   const handleTestApiKey = async () => {
     setTestStatus({ state: 'testing', message: 'Testing Gemini API key connection…' });
@@ -96,54 +151,93 @@ export default function ModelsSettings({ agentMode, onSelectMode }) {
 
   return (
     <div className="settings-tab-content" role="tabpanel">
-      {/* 1. AGENT EXECUTION MODE SELECTOR */}
-      <section className="settings-card">
-        <div className="settings-card-copy">
-          <span className="settings-card-label">EXECUTION STRATEGY</span>
-          <h2>Agent Execution Mode</h2>
-          <p>
-            Choose the default routing for your instructions. You can also quickly toggle this from the prompt bar dropdown.
-          </p>
+      {/* CODER AGENT PERMISSION TIERS (3 STAGES) */}
+      <section className="settings-card" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+        <div className="settings-card-copy" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div>
+              <span className="settings-card-label">SECURITY & ACCESS CONTROL</span>
+              <h2>Coder Agent Permissions (3 Stages)</h2>
+              <p>
+                Select your security tier below. Hover over any stage for detailed policy information.
+              </p>
+            </div>
+            {coderPermStatus && (
+              <span style={{
+                fontSize: '12px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                background: coderPermStatus.state === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                color: coderPermStatus.state === 'error' ? '#ef4444' : '#22c55e',
+                border: `1px solid ${coderPermStatus.state === 'error' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`,
+              }}>
+                {coderPermStatus.message}
+              </span>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', width: '100%', marginTop: '6px' }}>
-          <button
-            type="button"
-            className={`settings-mode-btn ${agentMode === 'auto' ? 'selected' : ''}`}
-            onClick={() => onSelectMode?.('auto')}
-          >
-            <div className="settings-mode-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>✨</span> Auto Mode
-            </div>
-            <div className="settings-mode-desc">
-              Intelligent multi-agent routing between chat, research, coder, browser, or desktop specialists.
-            </div>
-          </button>
 
-          <button
-            type="button"
-            className={`settings-mode-btn ${agentMode === 'browser' ? 'selected' : ''}`}
-            onClick={() => onSelectMode?.('browser')}
-          >
-            <div className="settings-mode-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🌐</span> Browser Mode
-            </div>
-            <div className="settings-mode-desc">
-              Routes directly to the dedicated Brave / Playwright Browser Specialist for web navigation.
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className={`settings-mode-btn ${agentMode === 'desktop' ? 'selected' : ''}`}
-            onClick={() => onSelectMode?.('desktop')}
-          >
-            <div className="settings-mode-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🖥️</span> Desktop Mode
-            </div>
-            <div className="settings-mode-desc">
-              Routes directly to the Computer Specialist for native Windows UI automation and application control.
-            </div>
-          </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', width: '100%', marginTop: '14px' }}>
+          {[
+            {
+              id: 'minimal',
+              name: 'Minimal',
+              tag: 'Read-Only',
+              desc: 'Safe inspection & diff viewing. Zero file writes or executions.',
+              tooltip: 'Stage 1 (Minimal): Allows CoderAgent to read workspace files and validate AST syntax, but strictly blocks any file modifications or subprocess executions.',
+            },
+            {
+              id: 'necessary',
+              name: 'Necessary',
+              tag: 'Recommended',
+              desc: 'Workspace protected. Read, write, and test inside project only.',
+              tooltip: 'Stage 2 (Necessary): Permits reading, writing, and test execution strictly within the current workspace. Blocks OS system drives and external folders.',
+            },
+            {
+              id: 'all',
+              name: 'All',
+              tag: 'Full PC Access',
+              desc: 'Full developer power across your whole PC with developer tools.',
+              tooltip: 'Stage 3 (All): Grants unrestricted whole-PC file access, multi-file edits, Git worktree isolation, and system test execution under automated safety policies.',
+            },
+          ].map((stage) => {
+            const isSelected = (coderPerms?.current_stage || 'necessary') === stage.id;
+            return (
+              <div
+                key={stage.id}
+                role="button"
+                tabIndex={0}
+                className={`coder-stage-pill ${isSelected ? 'is-selected' : ''}`}
+                onClick={() => handleSelectCoderStage(stage.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectCoderStage(stage.id); }}
+                title={stage.tooltip}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '13px', color: isSelected ? '#c89658' : 'inherit' }}>
+                    {stage.name}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    background: isSelected ? 'rgba(200, 150, 88, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                    color: isSelected ? '#c89658' : 'rgba(255, 255, 255, 0.6)',
+                    fontWeight: 600,
+                  }}>
+                    {isSelected ? '✓ ' + stage.tag : stage.tag}
+                  </span>
+                </div>
+                <div className="coder-stage-desc">
+                  {stage.desc}
+                </div>
+                {/* Pure CSS zero-latency tooltip directly on cursor */}
+                <div className="coder-stage-tooltip" role="tooltip">
+                  <strong>{stage.name} ({stage.tag})</strong>
+                  <div style={{ marginTop: '4px' }}>{stage.tooltip}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

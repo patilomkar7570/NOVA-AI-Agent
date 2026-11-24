@@ -16,6 +16,8 @@ from .registry import agent_capabilities, agent_ids
 from .router import TaskRouter
 from .specialists import BrowserAgent, ChatAgent, CoderAgent, ComputerAgent, ResearchAgent
 from .specialists.reaction_agent import ReactionAgent
+from .macro_compiler import MacroCompiler
+from .tri_consensus import TriConsensusVerifier
 
 
 _ALLOWED_AGENTS = frozenset(agent_ids())
@@ -66,6 +68,8 @@ class Orchestrator:
                 "NOVA specialist registry and Orchestrator wiring differ. "
                 f"Missing implementations: {missing}; unregistered implementations: {unregistered}."
             )
+        self.macro_compiler = MacroCompiler(memory=self.memory)
+        self.tri_consensus = TriConsensusVerifier()
 
     def _event(
         self, message: str, kind: str = "log", *, task_id: str | None = None,
@@ -192,10 +196,19 @@ class Orchestrator:
             if identity in seen_steps:
                 return f"Planner repeated the same specialist objective in step {index + 1}."
             seen_steps.add(identity)
-            if not isinstance(step.dependencies, tuple) or any(
-                not isinstance(dep, int) or dep < 0 or dep >= index for dep in step.dependencies
-            ):
-                return f"Planner step {index + 1} has invalid dependencies; only earlier steps may be referenced."
+            if isinstance(step.dependencies, (tuple, list)):
+                for dep in step.dependencies:
+                    if isinstance(dep, int):
+                        if dep < 0 or dep >= index:
+                            return f"Planner step {index + 1} has invalid dependencies; only earlier steps may be referenced."
+                    elif isinstance(dep, str):
+                        earlier_agents = {plan.steps[i].agent for i in range(index)}
+                        if dep not in earlier_agents and dep not in _ALLOWED_AGENTS:
+                            return f"Planner step {index + 1} references non-existent dependency: {dep}."
+                    else:
+                        return f"Planner step {index + 1} has invalid dependency type: {type(dep).__name__}."
+            else:
+                return f"Planner step {index + 1} has invalid dependencies; expected tuple or list."
             allowed_capabilities = agent_capabilities(name)
             if any(capability not in allowed_capabilities for capability in step.required_capabilities):
                 return f"Planner step {index + 1} requests a capability not registered to {name}."
@@ -265,7 +278,16 @@ class Orchestrator:
     ) -> AgentResult:
         self._active_cancel_event = cancellation_event or threading.Event()
         from .language import normalize_language
-        request = self.router.route(command, conversation_id=conversation_id)
+        try:
+            request = self.router.route(command, conversation_id=conversation_id)
+        except ValueError as err:
+            return AgentResult(
+                task_id=task_id or "invalid-task",
+                agent="orchestrator",
+                status="failed",
+                message=str(err),
+                errors=[str(err)],
+            ).finish()
         request = replace(request, context={**dict(request.context or {}), "language": normalize_language(language, default="auto"), "agent_mode": str(agent_mode or "auto").strip().lower()})
         if task_id:
             request = replace(request, task_id=str(task_id)[:128])
@@ -289,6 +311,15 @@ class Orchestrator:
             ).finish()
             self._finalise(request, final_result)
             return final_result
+
+        # Zero-Token Golden Macro Fast-Path (Fix 5.1)
+        fast_macro = self.macro_compiler.match_fast_path(request.command)
+        if fast_macro:
+            self._set_state("running", "Replaying compiled golden macro (0 tokens, instant fast-path).")
+            self._event(f"⚡ Golden Macro Fast-Path: Replaying compiled macro {fast_macro.get('id')} (0 tokens, <1ms).", event="macro_fast_path")
+            fast_res = self.macro_compiler.execute_fast_path(fast_macro, request, self.specialists)
+            self._finalise(request, fast_res)
+            return fast_res
 
         self._set_state("planning", "NOVA is understanding the request and planning the next step.")
         self._event("🧭 Router: request validated; analysing intent.", event="request_validated")
@@ -360,20 +391,21 @@ class Orchestrator:
                 break
 
             approval_audit = {"required": False, "approved": None}
+            risk_assessment = classify_action_risk(request.command, step.objective)
+            if risk_assessment.get("blocked"):
+                final_result = AgentResult(
+                    task_id=request.task_id, agent="policy", status="stopped",
+                    message=str(risk_assessment["reason"]),
+                    errors=[f"Critical {step.agent} action blocked by local NOVA policy."],
+                    data={"risk_assessment": risk_assessment},
+                ).finish()
+                self._event(
+                    str(risk_assessment["reason"]), kind="warning",
+                    agent=step.agent, step=step_index, event="critical_action_blocked",
+                )
+                break
+
             if step.agent in {"browser", "computer"}:
-                risk_assessment = classify_action_risk(request.command, step.objective)
-                if risk_assessment.get("blocked"):
-                    final_result = AgentResult(
-                        task_id=request.task_id, agent="policy", status="stopped",
-                        message=str(risk_assessment["reason"]),
-                        errors=[f"Critical {step.agent} action blocked by local NOVA policy."],
-                        data={"risk_assessment": risk_assessment},
-                    ).finish()
-                    self._event(
-                        str(risk_assessment["reason"]), kind="warning",
-                        agent=step.agent, step=step_index, event="critical_action_blocked",
-                    )
-                    break
                 if risk_assessment["requires_approval"]:
                     risk = str(risk_assessment["reason"])
                     approval_started = time.time()
@@ -592,9 +624,14 @@ class Orchestrator:
             if final_result.status in {"completed", "partial"}:
                 previous_results.append(final_result.to_handoff())
             if final_result.status != "completed":
-                # Check for dynamic reflection replan before aborting
-                replan_fn = getattr(self.planner, "reflect_and_replan", None)
-                recovery_step = replan_fn(request, step, final_result, completed_steps) if callable(replan_fn) else None
+                # 1. Speculative Tree-of-Thought: Check pre-computed contingencies first (<0.01ms latency)
+                resolve_fn = getattr(self.planner, "resolve_contingency", None)
+                recovery_step = resolve_fn(step, final_result.message) if callable(resolve_fn) else None
+
+                # 2. Dynamic reflection replan fallback
+                if recovery_step is None:
+                    replan_fn = getattr(self.planner, "reflect_and_replan", None)
+                    recovery_step = replan_fn(request, step, final_result, completed_steps) if callable(replan_fn) else None
                 if recovery_step is not None and not self._stop_requested() and len(completed_steps) < _MAX_PLAN_STEPS:
                     self._event(
                         f"🔄 Reflection Engine: Step failed ({final_result.status}). Auto-replanning: {recovery_step.reason}",
@@ -739,6 +776,18 @@ class Orchestrator:
 
         final_result.started_at = started
         final_result.finished_at = time.time()
+
+        if final_result.status == "completed":
+            try:
+                self.macro_compiler.compile(
+                    command=request.command,
+                    plan=plan,
+                    result=final_result,
+                    duration_ms=(final_result.finished_at - started) * 1000,
+                )
+            except Exception:
+                pass
+
         self._finalise(request, final_result)
         return final_result
 
@@ -768,6 +817,42 @@ class Orchestrator:
             )
         except Exception as exc:
             self._event(f"⚠️ Shared memory write failed: {exc}")
+
+        # SOTA Reward & Reflexion Learning Signal (+100 for verified success, -100 for failure)
+        reward_score = 0
+        reflection_note = ""
+        if result.status == "completed":
+            reward_score = 100
+            reflection_note = f"Task completed successfully by {result.agent} specialist."
+        elif result.status == "partial":
+            reward_score = 50
+            reflection_note = f"Task partially completed: {result.message[:120]}"
+        elif result.status in {"failed", "timed_out"}:
+            reward_score = -100
+            errs = "; ".join(result.errors) if result.errors else result.message[:120]
+            reflection_note = f"Task failed on {result.agent}: {errs}"
+        elif result.status == "stopped":
+            reward_score = 0
+            reflection_note = "Task cancelled by user request."
+
+        if not isinstance(result.data, dict):
+            result.data = {}
+        result.data["reward_score"] = reward_score
+        result.data["reflection"] = reflection_note
+
+        try:
+            record_reward_fn = getattr(self.memory, "record_task_reward", None)
+            if callable(record_reward_fn):
+                record_reward_fn(
+                    task_id=request.task_id,
+                    command=request.command,
+                    pipeline_agents=result.agent,
+                    reward=reward_score,
+                    status=result.status,
+                    reflection=reflection_note,
+                )
+        except Exception as exc:
+            self._event(f"⚠️ Reward journal write failed: {exc}")
         try:
             import desktop_memory
             if result.message and result.status in {"completed", "partial"}:

@@ -30,7 +30,7 @@ class TerminalSession:
         self.session_id = session_id
         self.cwd = cwd or os.getcwd()
         self.shell = shell
-        self.is_mock = is_mock
+        self.is_mock = is_mock or os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1"
         self.created_at = time.time()
         self.is_alive = True
         self.exit_code: int | None = None

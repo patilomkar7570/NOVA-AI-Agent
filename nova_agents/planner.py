@@ -7,6 +7,7 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any
+from dataclasses import replace
 
 from .contracts import ExecutionPlan, PlanStep, StepCritique, TaskRequest
 from .reactions import match_reaction
@@ -56,6 +57,16 @@ _COMPOSE_AND_WRITE_PATTERN = re.compile(
     r"(?:\s+(?:in|into|inside)\s+(?:the\s+)?([a-zA-Z0-9_\-]+(?:\s+app|\s+application)?))?$",
     re.IGNORECASE,
 )
+_DEEP_RESEARCH_PATTERN = re.compile(
+    r"^(?:(?:hey|hi|hello)\s+nova[,!\s]+)?(?:please\s+)?"
+    r"(?:deep\s+research|in[- ]depth\s+research|comprehensive\s+research|thoroughly\s+research|investigate\s+and\s+compare)\s+(?:on|about|into)?\s*(.*?)(?:\s+(?:and\s+)?(?:summarize|explain|cite\s+sources|give\s+sources|report|write\s+a\s+report))?$",
+    re.IGNORECASE,
+)
+_CODER_AND_RUN_PATTERN = re.compile(
+    r"^(?:(?:hey|hi|hello)\s+nova[,!\s]+)?(?:please\s+)?"
+    r"(?:write|create|build|generate)\s+(?:a\s+)?(?:python|javascript|bash|shell|node)?\s*(?:script|code|function|program)\s+(?:for|to|that)\s+(.*?)\s+(?:and|,|then)\s+(?:run|test|execute|verify)\s+(?:it|that)?$",
+    re.IGNORECASE,
+)
 _RESEARCH_FALLBACK = re.compile(
     r"\b(research|investigate|fact[ -]?check|compare|comparison|"
     r"gather sources|credible sources|latest developments|in[- ]depth analysis|"
@@ -100,6 +111,7 @@ def _build_multi_agent_pipeline(request: TaskRequest, match: re.Match) -> Execut
                 expected_output="Live article page loaded with full content.",
                 required_capabilities=tuple(agent_capabilities("browser")),
                 risk_level="low",
+                dependencies=(),
             ),
             PlanStep(
                 agent="research",
@@ -108,7 +120,7 @@ def _build_multi_agent_pipeline(request: TaskRequest, match: re.Match) -> Execut
                 expected_output="Structured factual evidence, key dates, and verified sources.",
                 required_capabilities=tuple(agent_capabilities("research")),
                 risk_level="low",
-                dependencies=["browser"],
+                dependencies=(0,),
             ),
             PlanStep(
                 agent="chat",
@@ -117,7 +129,7 @@ def _build_multi_agent_pipeline(request: TaskRequest, match: re.Match) -> Execut
                 expected_output="Direct, accurate answer with verified dates and facts.",
                 required_capabilities=tuple(agent_capabilities("chat")),
                 risk_level="low",
-                dependencies=["research"],
+                dependencies=(1,),
             ),
         ],
         explanation=f"Multi-agent research pipeline: Browser opens {site.title()} -> Research extracts facts -> Chat synthesizes the answer.",
@@ -147,6 +159,7 @@ def _build_search_and_paste_pipeline(request: TaskRequest, match: re.Match) -> E
                 expected_output="Live search results loaded.",
                 required_capabilities=tuple(agent_capabilities("browser")),
                 risk_level="low",
+                dependencies=(),
             ),
             PlanStep(
                 agent="research",
@@ -155,7 +168,7 @@ def _build_search_and_paste_pipeline(request: TaskRequest, match: re.Match) -> E
                 expected_output="Structured factual content and verified data.",
                 required_capabilities=tuple(agent_capabilities("research")),
                 risk_level="low",
-                dependencies=["browser"],
+                dependencies=(0,),
             ),
             PlanStep(
                 agent="chat",
@@ -164,7 +177,7 @@ def _build_search_and_paste_pipeline(request: TaskRequest, match: re.Match) -> E
                 expected_output="Comprehensive summary ready for document placement.",
                 required_capabilities=tuple(agent_capabilities("chat")),
                 risk_level="low",
-                dependencies=["research"],
+                dependencies=(1,),
             ),
             PlanStep(
                 agent="computer",
@@ -173,7 +186,7 @@ def _build_search_and_paste_pipeline(request: TaskRequest, match: re.Match) -> E
                 expected_output=f"Content verified and pasted into {clean_app.title()}.",
                 required_capabilities=tuple(agent_capabilities("computer")),
                 risk_level="low",
-                dependencies=["chat"],
+                dependencies=(2,),
             ),
         ],
         explanation=f"Autonomous pipeline: Search '{clean_topic}' -> Extract facts -> Synthesize answer -> Launch {clean_app.title()} and paste content.",
@@ -249,6 +262,7 @@ def _build_compose_and_paste_pipeline(
                 required_capabilities=tuple(agent_capabilities("chat")),
                 risk_level="low",
                 input_data=chat_input,
+                dependencies=(),
             ),
             PlanStep(
                 agent="computer",
@@ -258,11 +272,90 @@ def _build_compose_and_paste_pipeline(
                 required_capabilities=tuple(agent_capabilities("computer")),
                 risk_level="low",
                 input_data=comp_input,
-                dependencies=["chat"],
+                dependencies=(0,),
             ),
         ],
         explanation=f"Autonomous content pipeline: Generate {content_type} on '{clean_topic}' -> Open {clean_app.title()}, select Blank Document, paste text, and verify completion.",
         source="compose-and-paste-pipeline",
+        confidence=95.0,
+    )
+
+
+def _build_deep_research_pipeline(request: TaskRequest, match: re.Match) -> ExecutionPlan:
+    topic = (match.group(1) or request.command).strip()
+    clean_topic = re.sub(r"^(?:on|about|into)\s+", "", topic, flags=re.I).strip() or topic
+    return ExecutionPlan(
+        task_id=request.task_id,
+        steps=[
+            PlanStep(
+                agent="browser",
+                objective=f"search Google for {clean_topic} overview and documentation",
+                reason=f"Step 1: Browser specialist navigates to authoritative search results and overview for {clean_topic}.",
+                expected_output="Live search results and primary documentation pages loaded.",
+                required_capabilities=tuple(agent_capabilities("browser")),
+                risk_level="low",
+                dependencies=(),
+            ),
+            PlanStep(
+                agent="research",
+                objective=f"Extract cross-referenced facts, entities, dates, and credible citations for {clean_topic}",
+                reason="Step 2: Research specialist extracts structured factual evidence, metrics, and source URLs.",
+                expected_output="Structured factual evidence with verified source attribution.",
+                required_capabilities=tuple(agent_capabilities("research")),
+                risk_level="low",
+                dependencies=(0,),
+            ),
+            PlanStep(
+                agent="chat",
+                objective=f"Synthesize comprehensive, source-attributed research report on {clean_topic}",
+                reason="Step 3: Chat specialist formulates a comprehensive report with findings, key takeaways, and citations.",
+                expected_output="Comprehensive research report with key takeaways and verified citations.",
+                required_capabilities=tuple(agent_capabilities("chat")),
+                risk_level="low",
+                dependencies=(1,),
+            ),
+        ],
+        explanation=f"Autonomous deep research pipeline: Browser searches live web -> Research extracts verified citations -> Chat formats report on '{clean_topic}'.",
+        source="deep-research-pipeline",
+        confidence=95.0,
+    )
+
+
+def _build_coder_and_verify_pipeline(request: TaskRequest, match: re.Match) -> ExecutionPlan:
+    goal = (match.group(1) or request.command).strip()
+    return ExecutionPlan(
+        task_id=request.task_id,
+        steps=[
+            PlanStep(
+                agent="coder",
+                objective=f"Write code to {goal}",
+                reason=f"Step 1: Coder specialist generates AST-validated implementation for {goal}.",
+                expected_output="Synthesized, syntax-validated code ready for execution.",
+                required_capabilities=tuple(agent_capabilities("coder")),
+                risk_level="low",
+                dependencies=(),
+            ),
+            PlanStep(
+                agent="computer",
+                objective=f"Run and test the generated code for {goal}",
+                reason="Step 2: Computer specialist executes the code in an isolated session to capture output and verify execution.",
+                expected_output="Execution results, stdout, and exit code captured.",
+                required_capabilities=tuple(agent_capabilities("computer")),
+                risk_level="low",
+                dependencies=(0,),
+            ),
+            PlanStep(
+                agent="chat",
+                objective=f"Analyze execution output and summarize verification results for {goal}",
+                reason="Step 3: Chat specialist reviews output, confirms correctness, and explains results.",
+                expected_output="Clear summary of execution output and verification.",
+                required_capabilities=tuple(agent_capabilities("chat")),
+                risk_level="low",
+                dependencies=(1,),
+            ),
+        ],
+        explanation=f"Autonomous coding pipeline: Synthesize code for '{goal}' -> Execute and test -> Explain results.",
+        source="coder-and-verify-pipeline",
         confidence=95.0,
     )
 
@@ -277,6 +370,79 @@ class TaskPlanner:
     def __init__(self, agent_module, memory=None):
         self.agent = agent_module
         self.memory = memory
+
+    def _check_adaptive_reflexion(self, request: TaskRequest) -> ExecutionPlan | None:
+        """Query past negative rewards (-100) to proactively adapt and prune failing routes."""
+        if self.memory is None:
+            return None
+        try:
+            reflexions = self.memory.get_reflexions_for_query(request.command, limit=5)
+            failed = [r for r in reflexions if r.get("reward", 0) <= -100]
+            if not failed:
+                return None
+
+            common_verbs = {
+                "open", "search", "tell", "edit", "run", "write", "find", "start",
+                "show", "give", "with", "from", "and", "the", "for", "when", "was",
+                "born", "into", "that", "this", "about", "what", "which",
+            }
+            req_tokens = {
+                w for w in re.findall(r"\b[a-z]{3,}\b", request.command.lower())
+                if w not in common_verbs
+            }
+
+            for failure in failed:
+                failed_cmd = str(failure.get("command") or "").lower()
+                failed_tokens = {
+                    w for w in re.findall(r"\b[a-z]{3,}\b", failed_cmd)
+                    if w not in common_verbs
+                }
+                shared = req_tokens & failed_tokens
+                if not shared:
+                    continue
+
+                failed_agent = str(failure.get("pipeline_agents") or "")
+                reflection_text = str(failure.get("reflection") or "").lower()
+                target_entity = sorted(shared, key=lambda x: -len(x))[0]
+
+                # Rule 1: If desktop app previously failed / not found -> prune computer, switch to web
+                if "computer" in failed_agent and any(k in reflection_text for k in ["not found", "not installed", "failed to focus", "missing"]):
+                    return ExecutionPlan(
+                        task_id=request.task_id,
+                        steps=[PlanStep(
+                            agent="browser",
+                            objective=f"Open web version of {target_entity} and complete: {request.command}",
+                            reason=f"Adaptive Reflexion: Desktop route pruned due to previous -100 penalty ({reflection_text[:80]}); switching to browser.",
+                            expected_output=f"Web execution for {target_entity} completed.",
+                            required_capabilities=tuple(agent_capabilities("browser")),
+                            risk_level="low",
+                        )],
+                        explanation=f"Adaptive Reflexion: Pruned failing desktop route for '{target_entity}'; routed to web version.",
+                        source="adaptive-reflexion-pruner",
+                        confidence=95.0,
+                        metadata={"pruned_agent": "computer", "previous_penalty": -100, "reflexion_applied": True, "target": target_entity},
+                    )
+
+                # Rule 2: If browser previously blocked / timed out -> switch to research
+                if "browser" in failed_agent and any(k in reflection_text for k in ["blocked", "timed out", "captcha"]):
+                    return ExecutionPlan(
+                        task_id=request.task_id,
+                        steps=[PlanStep(
+                            agent="research",
+                            objective=request.command,
+                            reason=f"Adaptive Reflexion: Direct browser route pruned due to previous penalty ({reflection_text[:80]}); using research specialist.",
+                            expected_output="Multi-source research evidence compiled.",
+                            required_capabilities=tuple(agent_capabilities("research")),
+                            risk_level="low",
+                        )],
+                        explanation="Adaptive Reflexion: Pruned blocked browser route; routed to deep research.",
+                        source="adaptive-reflexion-pruner",
+                        confidence=95.0,
+                        metadata={"pruned_agent": "browser", "previous_penalty": -100, "reflexion_applied": True},
+                    )
+        except Exception:
+            pass
+        return None
 
     def _is_explicit_action_request(self, command: str) -> bool:
         """Use the same explicit-action check for normal routing and fallback.
@@ -520,6 +686,22 @@ USER REQUEST:
                 source="user-mode-override",
                 confidence=100.0,
             )
+        if agent_mode in {"bronze", "nova_bronze"}:
+            return ExecutionPlan(
+                task_id=request.task_id,
+                steps=[PlanStep(
+                    agent="chat",
+                    objective=request.command,
+                    reason="User selected NOVA Bronze mode; routed directly to fast on-device Bronze specialist.",
+                    input_data={"planner_source": "user-mode-override", "mode": "bronze", "model_profile": "bronze"},
+                    expected_output="Fast verified response from local on-device Bronze model.",
+                    required_capabilities=tuple(agent_capabilities("chat")),
+                    risk_level="low",
+                )],
+                explanation="NOVA Bronze mode selected: routed directly to fast on-device Bronze specialist.",
+                source="user-mode-override",
+                confidence=100.0,
+            )
         if agent_mode in {"computer", "desktop"}:
             return ExecutionPlan(
                 task_id=request.task_id,
@@ -569,6 +751,21 @@ USER REQUEST:
                 source="reaction-keyword",
                 confidence=100.0,
             )
+
+        # Adaptive Reflexion Pruning: Prune previously failing routes upfront (-100 penalty)
+        adaptive_plan = self._check_adaptive_reflexion(request)
+        if adaptive_plan is not None:
+            return adaptive_plan
+
+        # Multi-agent coding & execution pipeline: "write a python script for X and run it"
+        coder_run_match = _CODER_AND_RUN_PATTERN.match(request.command.strip())
+        if coder_run_match:
+            return _build_coder_and_verify_pipeline(request, coder_run_match)
+
+        # Multi-agent deep research pipeline: "deep research on X", "investigate and compare X"
+        deep_research_match = _DEEP_RESEARCH_PATTERN.match(request.command.strip())
+        if deep_research_match:
+            return _build_deep_research_pipeline(request, deep_research_match)
 
         # Automatic Developer & Code Task Routing
         cmd_lower = request.command.lower()
@@ -642,6 +839,11 @@ USER REQUEST:
         pipeline_match = _BROWSE_RESEARCH_CHAT_PATTERN.match(command)
         if pipeline_match:
             return _build_multi_agent_pipeline(request, pipeline_match)
+
+        # Multi-agent deep research pipeline: "deep research on X", "investigate and compare X"
+        deep_research_match = _DEEP_RESEARCH_PATTERN.match(command)
+        if deep_research_match:
+            return _build_deep_research_pipeline(request, deep_research_match)
 
         if parsed.is_browser_action:
             topic = parsed.content_topic or command
@@ -836,6 +1038,77 @@ USER REQUEST:
         except Exception as exc:
             self._log_model_error(exc)
             return self._fallback(request, f"MODEL_UNAVAILABLE: {type(exc).__name__}: {exc}")
+
+    def create_speculative_plan_tree(self, request: TaskRequest) -> ExecutionPlan:
+        """Speculative Tree-of-Thought (ToT) Planning (Fix 4.2).
+        Generates an execution plan with pre-computed contingency branches attached
+        to each step to allow zero-latency instant path-switching if a step fails.
+        """
+        base_plan = self.create_plan(request)
+        speculative_steps = []
+
+        for step in base_plan.steps:
+            contingencies = []
+            if step.agent == "computer":
+                app_match = re.search(r"(?:open|launch|in|into|to)\s+([a-zA-Z0-9_\-]+)", step.objective, re.I)
+                app_name = app_match.group(1) if app_match else "application"
+                contingencies.append({
+                    "trigger": "not found|not installed|failed to focus|missing",
+                    "agent": "browser",
+                    "objective": f"Open web version of {app_name} and complete: {step.objective}",
+                    "reason": f"Speculative Tree: Desktop {app_name} unavailable, instantly branching to web app.",
+                })
+                if any(w in step.objective.lower() for w in ["write", "essay", "document", "docx"]):
+                    contingencies.append({
+                        "trigger": "write error|paste failed|cannot focus",
+                        "agent": "computer",
+                        "objective": f"Generate verified docx file directly for: {step.objective}",
+                        "reason": "Speculative Tree: UI paste unavailable, instantly branching to direct docx engine.",
+                    })
+            elif step.agent == "browser":
+                contingencies.append({
+                    "trigger": "blocked|captcha|timeout|failed to navigate",
+                    "agent": "research",
+                    "objective": step.objective,
+                    "reason": "Speculative Tree: Live browser blocked, instantly branching to static research fetcher.",
+                })
+            elif step.agent == "coder":
+                contingencies.append({
+                    "trigger": "syntaxerror|zerodivisionerror|indexerror|traceback|test failed",
+                    "agent": "coder",
+                    "objective": f"debug and fix: {step.objective}",
+                    "reason": "Speculative Tree: Execution exception raised, instantly branching to self-healing debug loop.",
+                })
+
+            input_data = dict(step.input_data)
+            input_data["contingencies"] = contingencies
+            speculative_step = replace(step, input_data=input_data)
+            speculative_steps.append(speculative_step)
+
+        metadata = dict(base_plan.metadata)
+        metadata["speculative_tree_enabled"] = True
+        metadata["total_contingencies"] = sum(len(s.input_data.get("contingencies", [])) for s in speculative_steps)
+
+        return replace(
+            base_plan,
+            steps=speculative_steps,
+            metadata=metadata,
+        )
+
+    def resolve_contingency(self, step: PlanStep, error_text: str) -> PlanStep | None:
+        """Instantly resolve pre-computed contingency branch for a failing step (<0.01ms)."""
+        contingencies = step.input_data.get("contingencies") or []
+        err_lower = (error_text or "").lower()
+        for cont in contingencies:
+            triggers = cont.get("trigger", "").split("|")
+            if any(t.strip() in err_lower for t in triggers if t.strip()):
+                return PlanStep(
+                    agent=cont.get("agent", "chat"),
+                    objective=cont.get("objective", step.objective),
+                    reason=cont.get("reason", "Speculative contingency branch resolved."),
+                    risk_level=step.risk_level,
+                )
+        return None
 
     def evaluate_step_outcome(self, step: PlanStep, result: Any) -> StepCritique:
         """Outcome validation / self-critique loop.

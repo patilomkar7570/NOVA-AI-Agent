@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for NOVA Agent / Model mode selection (auto, browser, desktop)."""
 import unittest
 from nova_agents.planner import TaskPlanner
@@ -19,6 +24,22 @@ class TestAgentMode(unittest.TestCase):
         plan = planner.create_plan(req)
         self.assertEqual(len(plan.steps), 1)
         self.assertEqual(plan.steps[0].agent, "computer")
+        self.assertEqual(plan.source, "user-mode-override")
+
+    def test_planner_mode_coder(self):
+        planner = TaskPlanner(None)
+        req = TaskRequest(command="refactor api endpoint", task_id="test-coder-1", context={"agent_mode": "coder"})
+        plan = planner.create_plan(req)
+        self.assertEqual(len(plan.steps), 1)
+        self.assertEqual(plan.steps[0].agent, "coder")
+        self.assertEqual(plan.source, "user-mode-override")
+
+    def test_planner_mode_coding_alias(self):
+        planner = TaskPlanner(None)
+        req = TaskRequest(command="write binary search", task_id="test-coder-2", context={"agent_mode": "coding"})
+        plan = planner.create_plan(req)
+        self.assertEqual(len(plan.steps), 1)
+        self.assertEqual(plan.steps[0].agent, "coder")
         self.assertEqual(plan.source, "user-mode-override")
 
     def test_planner_mode_auto(self):

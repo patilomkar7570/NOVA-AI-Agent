@@ -214,6 +214,8 @@ def terminate_browser_for_profile(browser_name: str, profile_path: str,
     """
     if os.name != "nt":
         return False
+    if os.environ.get("NOVA_TEST_MODE") == "1" or os.environ.get("NOVA_SANDBOX_MODE") == "1":
+        return True
     process_name = PROCESS_NAMES.get(browser_name)
     if not process_name:
         return False

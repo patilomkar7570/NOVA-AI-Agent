@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for 2FA SMS Interception, TOTP Generator & CAPTCHA Hand-off."""
 import os
 import unittest
@@ -13,7 +18,7 @@ class TwoFactorAndCaptchaTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        os.environ.pop("NOVA_TEST_MODE", None)
+        pass
 
     def test_extract_2fa_sms_codes(self):
         cases = [

@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for Live Streaming Interactive Terminal Engine (nova_terminal.py)."""
 import os
 import unittest
@@ -7,11 +12,15 @@ from nova_terminal import TerminalManager, TerminalSession, terminal_manager
 class InteractiveTerminalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._prev_test_mode = os.environ.get("NOVA_TEST_MODE")
         os.environ["NOVA_TEST_MODE"] = "1"
 
     @classmethod
     def tearDownClass(cls):
-        os.environ.pop("NOVA_TEST_MODE", None)
+        if cls._prev_test_mode is not None:
+            os.environ["NOVA_TEST_MODE"] = cls._prev_test_mode
+        else:
+            os.environ.setdefault("NOVA_TEST_MODE", "1")
 
     def setUp(self):
         self.manager = TerminalManager()

@@ -133,6 +133,33 @@ class SharedMemory:
                 );
                 CREATE INDEX IF NOT EXISTS idx_execution_steps_task
                     ON execution_steps(task_id, step_index, attempt);
+
+                CREATE TABLE IF NOT EXISTS reflexion_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT NOT NULL,
+                    command TEXT NOT NULL,
+                    pipeline_agents TEXT NOT NULL,
+                    reward INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    reflection TEXT NOT NULL DEFAULT '',
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_reflexion_command
+                    ON reflexion_log(command);
+                CREATE INDEX IF NOT EXISTS idx_reflexion_time
+                    ON reflexion_log(created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS compiled_macros (
+                    id TEXT PRIMARY KEY,
+                    command_pattern TEXT NOT NULL,
+                    steps_json TEXT NOT NULL,
+                    success_count INTEGER NOT NULL DEFAULT 1,
+                    avg_latency_ms REAL NOT NULL DEFAULT 0.0,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_compiled_macros_pattern
+                    ON compiled_macros(command_pattern);
                 """
             )
             # Backward-compatible schema migration for databases created by Alpha 0.4/0.5.
@@ -583,6 +610,102 @@ class SharedMemory:
             "execution_steps": int(steps), "interrupted_runs": int(interrupted),
             "conversation_summaries": int(summaries),
         }
+
+    def record_task_reward(
+        self,
+        task_id: str,
+        command: str,
+        pipeline_agents: list[str] | str,
+        reward: int,
+        status: str,
+        reflection: str = "",
+    ) -> None:
+        """Record reward signal (+100 for verified success, -100 for failure) and self-critique reflection."""
+        agents_str = ",".join(pipeline_agents) if isinstance(pipeline_agents, list) else str(pipeline_agents)
+        with self._connection() as conn:
+            conn.execute(
+                """INSERT INTO reflexion_log (task_id, command, pipeline_agents, reward, status, reflection, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (task_id, command, agents_str, int(reward), str(status), str(reflection), time.time()),
+            )
+
+    def get_reflexions_for_query(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Retrieve recent reflections and reward lessons for similar task commands."""
+        clean = " ".join(query.strip().split()).lower()
+        words = [w for w in re.findall(r"\b[a-z]{3,}\b", clean) if w not in _STOPWORDS]
+        with self._connection() as conn:
+            if words:
+                conditions = " OR ".join("LOWER(command) LIKE ?" for _ in words[:4])
+                params = [f"%{w}%" for w in words[:4]] + [limit]
+                sql = f"SELECT * FROM reflexion_log WHERE {conditions} ORDER BY created_at DESC LIMIT ?"
+                rows = conn.execute(sql, params).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM reflexion_log ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_reward_summary(self) -> dict[str, Any]:
+        """Aggregate total reward score, completed tasks, and success rate."""
+        with self._connection() as conn:
+            row = conn.execute(
+                """SELECT
+                       COUNT(*) as total_evals,
+                       SUM(CASE WHEN reward > 0 THEN 1 ELSE 0 END) as successes,
+                       SUM(CASE WHEN reward < 0 THEN 1 ELSE 0 END) as failures,
+                       COALESCE(SUM(reward), 0) as total_reward
+                   FROM reflexion_log"""
+            ).fetchone()
+            if not row:
+                return {"total_evals": 0, "successes": 0, "failures": 0, "total_reward": 0, "win_rate": 0.0}
+            total = int(row["total_evals"] or 0)
+            successes = int(row["successes"] or 0)
+            failures = int(row["failures"] or 0)
+            total_reward = int(row["total_reward"] or 0)
+            win_rate = (successes / total * 100.0) if total > 0 else 0.0
+            return {
+                "total_evals": total,
+                "successes": successes,
+                "failures": failures,
+                "total_reward": total_reward,
+                "win_rate": round(win_rate, 1),
+            }
+
+    def save_compiled_macro(
+        self,
+        macro_id: str,
+        command_pattern: str,
+        steps: list[dict[str, Any]],
+        latency_ms: float = 0.0,
+    ) -> None:
+        """Persist a compiled golden macro for zero-token fast replay (Fix 5.1)."""
+        now = time.time()
+        steps_json = json.dumps(steps)
+        with self._connection() as conn:
+            conn.execute(
+                """INSERT INTO compiled_macros
+                   (id, command_pattern, steps_json, success_count, avg_latency_ms, created_at, updated_at)
+                   VALUES (?, ?, ?, 1, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                       success_count = success_count + 1,
+                       avg_latency_ms = (avg_latency_ms + excluded.avg_latency_ms) / 2.0,
+                       updated_at = excluded.updated_at""",
+                (macro_id, command_pattern, steps_json, latency_ms, now, now),
+            )
+
+    def get_compiled_macro(self, command_pattern: str) -> dict[str, Any] | None:
+        """Retrieve compiled golden macro by normalized command pattern."""
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM compiled_macros WHERE command_pattern = ? LIMIT 1",
+                (command_pattern,),
+            ).fetchone()
+            if not row:
+                return None
+            data = dict(row)
+            try:
+                data["steps"] = json.loads(data.get("steps_json") or "[]")
+            except Exception:
+                data["steps"] = []
+            return data
 
 
 class ContextCompactor:

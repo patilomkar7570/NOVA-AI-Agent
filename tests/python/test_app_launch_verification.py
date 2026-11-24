@@ -1,3 +1,8 @@
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Tests for multi-strategy application launch verification, Voicebox detection, and multi-step pipeline planning."""
 import unittest
 from nova_agents.contracts import TaskRequest
@@ -13,8 +18,17 @@ import desktop_memory
 
 
 class TestAppLaunchAndVerification(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import os
+        os.environ["NOVA_TEST_MODE"] = "1"
+        os.environ["NOVA_SANDBOX_MODE"] = "1"
+
     def setUp(self):
-        self.agent = ComputerAgent(None)
+        import os
+        os.environ["NOVA_TEST_MODE"] = "1"
+        os.environ["NOVA_SANDBOX_MODE"] = "1"
+        self.agent = ComputerAgent(None, sandbox=True)
         self.planner = TaskPlanner(None)
 
     def test_voicebox_in_app_maps(self):

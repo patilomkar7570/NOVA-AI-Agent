@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+import os
+os.environ.setdefault("NOVA_TEST_MODE", "1")
+os.environ.setdefault("NOVA_SANDBOX_MODE", "1")
+os.environ.setdefault("NOVA_HEADLESS", "1")
+
 """Master Upgrade Audit & Stabilization Regression Test Suite for NOVA AI Agent.
 
 Covers:
@@ -12,8 +19,6 @@ Covers:
 - Exactly 100 non-empty paragraphs content generation
 - OpenXML DOCX creation, saving, and content verification
 """
-from __future__ import annotations
-
 import os
 import shutil
 import tempfile
@@ -65,7 +70,6 @@ class MasterUpgradeAuditTests(unittest.TestCase):
         os.environ["NOVA_TEST_DOCS_DIR"] = self.temp_dir
 
     def tearDown(self):
-        os.environ.pop("NOVA_TEST_MODE", None)
         os.environ.pop("NOVA_TEST_DOCS_DIR", None)
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
